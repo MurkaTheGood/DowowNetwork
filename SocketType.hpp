@@ -6,8 +6,8 @@
 namespace DowowNetwork {
     enum SocketType : uint8_t {
         SocketTypeUndefined = 0,
-        SocketTypeUNIX = 1,
-        SocketTypeTCP = 2
+        SocketTypeUnix = 1,
+        SocketTypeTcp = 2
     };
 }
 

@@ -30,6 +30,7 @@ set(SOURCES
     Server.cpp
     Value.cpp
     Utils.cpp
+#    DowowConnection.cpp
 )
 
 # use C++11

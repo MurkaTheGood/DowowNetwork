@@ -11,109 +11,11 @@
 
 #include "Utils.hpp"
 
-DowowNetwork::Client::Client() : Connection() {
-
-}
-
-bool DowowNetwork::Client::ConnectTCP(std::string ip, uint16_t port, bool nonblocking) {
-    // check if connected or connecting
-    if (!IsClosed() || IsConnecting()) return false;
-
-    // save the block state
-    this->nonblocking = nonblocking;
-
-    // temp socket fd
-    temp_socket_fd = socket(AF_INET, SOCK_STREAM | (nonblocking ? SOCK_NONBLOCK : 0), 0);
-    // failed to create the temp socket
-    if (temp_socket_fd == -1) return false;
-
-    // create the address to connect to
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htobe16(port);
-    // ip
-    if (!inet_aton(ip.c_str(), &addr.sin_addr)) {
-        // invalid
-        close(temp_socket_fd);
-        temp_socket_fd = -1;
-        return false;
-    }
-
-    // connect
-    int connect_res = connect(temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
-
-    if (connect_res == -1) {
-        if (!nonblocking) {
-            // the socket is blocking and we failed to connect
-            close(temp_socket_fd);
-            temp_socket_fd = -1;
-            return false;
-        }
-        // the socket is nonblocking, connecting in background
-        if (errno == EINPROGRESS) {
-            return true;
-        }
-        // error
-        close(temp_socket_fd);
-        temp_socket_fd = -1;
-        return false;
-    }
-
-    // connected
-    InitializeByFD(temp_socket_fd);
-    temp_socket_fd = -1;
-
-    return true;
-}
-
-bool DowowNetwork::Client::ConnectUNIX(std::string socket_path, bool nonblocking) {
-    // check if connected or connecting
-    if (!IsClosed() || IsConnecting()) return false;
-
-    // save the block state
-    this->nonblocking = nonblocking;
-
-    // temp socket fd
-    temp_socket_fd = socket(AF_UNIX, SOCK_STREAM | (nonblocking ? SOCK_NONBLOCK : 0), 0);
-    // failed to create the temp socket
-    if (temp_socket_fd == -1) return false;
-
-    // create the address to connect to
-    sockaddr_un addr;
-    addr.sun_family = AF_UNIX;
-    memcpy(addr.sun_path, socket_path.c_str(), socket_path.size() + 1);
-
-    // connect
-    int connect_res = connect(temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
-
-    if (connect_res == -1) {
-        if (!nonblocking) {
-            // the socket is blocking and we failed to connect
-            close(temp_socket_fd);
-            temp_socket_fd = -1;
-            return false;
-        }
-        // the socket is nonblocking, connecting in background
-        if (errno == EINPROGRESS) {
-            return true;
-        }
-        // error
-        close(temp_socket_fd);
-        temp_socket_fd = -1;
-        return false;
-    }
-
-    // connected
-    InitializeByFD(temp_socket_fd);
-    temp_socket_fd = -1;
-
-    return true;
-}
-
-void DowowNetwork::Client::HandleConnecting() {
+void DowowNetwork::Client::SubPoll() {
     // do nothing if not connecting
     if (!IsConnecting()) return;
 
+    // check if can write (i.e. send data)
     if (Utils::SelectWrite(temp_socket_fd)) {
         // check if succeed
         int socket_error;
@@ -135,15 +37,115 @@ void DowowNetwork::Client::HandleConnecting() {
     }
 }
 
+DowowNetwork::Client::Client(bool nonblocking) : Connection() {
+    // set the nonblocking state
+    SetNonblocking(nonblocking);
+}
+
+
+bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port) {
+    // check if connected or connecting
+    if (IsConnected() || IsConnecting())
+        return false;
+
+    // temp socket fd
+    temp_socket_fd =
+        socket(AF_INET, SOCK_STREAM | (IsNonblocking() ? SOCK_NONBLOCK : 0), 0);
+    // failed to create the temp socket
+    if (temp_socket_fd == -1)
+        return false;
+
+    // create the address to connect to
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htobe16(port);
+    // ip
+    if (!inet_aton(ip.c_str(), &addr.sin_addr)) {
+        // invalid
+        close(temp_socket_fd);
+        temp_socket_fd = -1;
+        return false;
+    }
+
+    // connect
+    int connect_res = connect(temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
+
+    if (connect_res == -1) {
+        if (!IsNonblocking()) {
+            // the socket is blocking and we failed to connect
+            close(temp_socket_fd);
+            temp_socket_fd = -1;
+            return false;
+        }
+        // the socket is nonblocking, connecting in background
+        if (errno == EINPROGRESS) {
+            return true;
+        }
+        // error
+        close(temp_socket_fd);
+        temp_socket_fd = -1;
+        return false;
+    }
+
+    // connected
+    InitializeByFD(temp_socket_fd);
+    temp_socket_fd = -1;
+
+    return true;
+}
+
+bool DowowNetwork::Client::ConnectUnix(std::string socket_path) {
+    // check if connected or connecting
+    if (IsConnected() || IsConnecting())
+        return false;
+
+    // temp socket fd
+    temp_socket_fd =
+        socket(AF_UNIX, SOCK_STREAM | (IsNonblocking() ? SOCK_NONBLOCK : 0), 0);
+
+    // failed to create the temp socket
+    if (temp_socket_fd == -1)
+        return false;
+
+    // create the address to connect to
+    sockaddr_un addr;
+    addr.sun_family = AF_UNIX;
+    memcpy(addr.sun_path, socket_path.c_str(), socket_path.size() + 1);
+
+    // connect
+    int connect_res = connect(temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
+
+    if (connect_res == -1) {
+        if (!IsNonblocking()) {
+            // the socket is blocking and we failed to connect
+            close(temp_socket_fd);
+            temp_socket_fd = -1;
+            return false;
+        }
+        // the socket is nonblocking, connecting in background
+        if (errno == EINPROGRESS) {
+            return true;
+        }
+        // error
+        close(temp_socket_fd);
+        temp_socket_fd = -1;
+        return false;
+    }
+
+    // connected
+    InitializeByFD(temp_socket_fd);
+    temp_socket_fd = -1;
+
+    return true;
+}
+
 bool DowowNetwork::Client::IsConnecting() {
     return temp_socket_fd != -1;
 }
 
-bool DowowNetwork::Client::IsConnected() {
-    // the socket is connected if it's not closed nor connecting.
-    return !IsClosed() && !IsConnecting();
-}
-
 DowowNetwork::Client::~Client() {
-    
+    // close the connecting socket
+    if (temp_socket_fd != -1) {
+        close(temp_socket_fd);
+    }
 }

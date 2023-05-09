@@ -9,26 +9,23 @@ namespace DowowNetwork {
     private:
         // file descriptor for a socket trying to connect to the server
         int temp_socket_fd = -1;
+    protected:
+        void SubPoll() final;
     public:
         // creates a client that is not connected anywhere
-        Client();
+        Client(bool nonblocking = false);
 
         // connect to a TCP server.
         // if nonblocking: returns true if ok, false if failed; use IsConnected to check status
         // if blocking: returns true if connected, false if failed
-        bool ConnectTCP(std::string ip, uint16_t port, bool nonblocking = false);
+        bool ConnectTcp(std::string ip, uint16_t port);
         // connect to a UNIX server.
         // if nonblocking: returns true if ok, false if failed; use IsConnected to check status
         // if blocking: returns true if connected, false if failed
-        bool ConnectUNIX(std::string socket_path, bool nonblocking = false);
-
-        // handle nonblocking connecting
-        void HandleConnecting();
+        bool ConnectUnix(std::string socket_path);
 
         // returns true if trying to connect
         bool IsConnecting();
-        // returns true if connected
-        bool IsConnected();
 
         // delete
         ~Client();

@@ -35,7 +35,8 @@ namespace DowowNetwork {
         void Set(std::string name, Value *value, bool to_copy = true);
         // Set the argument by reference.
         void Set(std::string name, Value &value);
-        // Get the argument
+        // Get the argument.
+        // Do not delete it, the original is returned.
         // Returns 0 if the argument is not set.
         Value* Get(std::string name);
 

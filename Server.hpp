@@ -30,18 +30,18 @@ namespace DowowNetwork {
         Server();
 
         // Set the server to be blocking/nonblocking
-        void SetBlocking(bool blocking);
+        void SetNonblocking(bool nonblocking);
 
         // Create the UNIX socket server on specified path.
         // If the file on socket_path exists, it will be deleted if delete_old_file == true.
         // Returns true of success, false on failure.
-        bool StartUNIX(std::string socket_path, bool delete_old_file = true);
+        bool StartUnix(std::string socket_path, bool delete_old_file = true);
         // Get the unix socket path
-        std::string GetUNIXPath();
+        std::string GetUnixPath();
 
-        // Create the TCP socket server of specified path.
+        // Create the TCP socket server on specified address.
         // Returns true on success, false on failure.
-        bool StartTCP(std::string ip, uint16_t port);
+        bool StartTcp(std::string ip, uint16_t port);
         // Get the TCP IP
         uint32_t GetTcpIp();
         // Get the TCP ip as string

@@ -4,6 +4,7 @@
 #include <queue>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #ifdef DUMP_CONNECTIONS
 #include <fstream>
@@ -17,9 +18,13 @@
 namespace DowowNetwork {
     class Connection {
     private:
+        // time for pselect()
         const timespec zero_time { 0, 0 };
-    protected:
-        // the socket that used for communication
+
+        // true if graceful disconnection is in progress
+        bool is_disconnecting = false;
+
+        // the socket that is used for communication
         int socket_fd = -1;
 
         // the socket type
@@ -54,8 +59,13 @@ namespace DowowNetwork {
         bool is_recv_length = true;
 
         // nonblocking I/O?
-        bool nonblocking;
+        bool nonblocking = false;
 
+        // session data
+        void* session_data = 0;
+        // session data length
+        uint32_t session_data_len = 0;
+    protected:
         // this constructor can only be used in derived classes
         Connection();
 
@@ -73,8 +83,11 @@ namespace DowowNetwork {
         // send logic.
         // sends the request(s) from send_queue.
         // if nonblocking, will not block. Will send as much data per one call as possible.
-        // if blocing, will send until everything is sent.
+        // if blocing, will send until the first from the queue is sent.
         void Send(bool nonblocking);
+
+        // close the connection
+        void Close();
 
         // pops the request from send_queue to send_buffer.
         // does not delete the old buffer.
@@ -83,17 +96,23 @@ namespace DowowNetwork {
 
         // initialize the connection with existing socket
         void InitializeByFD(int socket_fd);
+
+        // additional Poll() logic to define in derived classes
+        virtual void SubPoll();
     public:
+        // connection tag
+        std::string tag;
+
         // create a new connection, based on existing socket.
         Connection(int socket_fd);
 
         // set the connection to be blocking or nonblocking
-        void SetBlocking(bool blocking);
-        // check if blocking
-        bool IsBlocking();
+        void SetNonblocking(bool nonblocking);
+        // check if nonblocking
+        bool IsNonblocking();
 
         // handle the nonblocking IO (works only when nonblocking)
-        void Handle();
+        void Poll();
 
         // Push the request to the send queue.
         // If you don't want do use the passed request later, set must_copy = false.
@@ -107,14 +126,53 @@ namespace DowowNetwork {
         // !DELETE IT BY YOURSELF!
         Request* Pull();
 
-        // close the connection
-        void Close();
-        // true if closed (socket_type == SocketTypeUndefined)
-        bool IsClosed();
+        // disconnect.
+        // if forced, then it will be closed immidiately.
+        // if not forced, then all the remaining data will be sent.
+        void Disconnect(bool forced = false);
+        // true if connected (socket_type == SocketTypeUndefined)
+        bool IsConnected();
+        // true if graceful disconnection is in progress
+        bool IsDisconnecting();
 
         // returns the socket type.
         // returns SocketTypeUndefined if not connected
         uint8_t GetType();
+
+        // sets the session data (makes a copy).
+        // to remove it at all, pass 0 as data.
+        template<class T> void SetSessionData(T* data) {
+            // delete old session data
+            if (session_data)
+                free(session_data);
+
+            if (!data) {
+                session_data = 0;
+            } else {
+                session_data_len = sizeof(T);
+                session_data = malloc(session_data_len);
+                memcpy(session_data, data, session_data_len);
+            }
+        }
+
+        // gets the session data.
+        template<class T> T* GetSessionData(bool return_copy = false) {
+            // not set
+            if (!session_data) return 0;
+            // sizes do not match
+            if (sizeof(T) != session_data_len) return 0;
+
+            T* to_return = 0;
+
+            if (return_copy) {
+                to_return = new T();
+                memcpy(to_return, session_data, session_data_len);
+            } else {
+                to_return = reinterpret_cast<T*>(session_data);
+            }
+
+            return to_return;
+        }
 
         virtual ~Connection();
     };

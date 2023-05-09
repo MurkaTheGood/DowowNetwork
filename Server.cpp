@@ -22,14 +22,15 @@ DowowNetwork::Server::Server() {
     // here goes nothing
 }
 
-void DowowNetwork::Server::SetBlocking(bool blocking) {
+void DowowNetwork::Server::SetNonblocking(bool nonblocking) {
     // success
-    nonblocking = !blocking;
+    this->nonblocking = nonblocking;
 }
 
-bool DowowNetwork::Server::StartUNIX(std::string path, bool dof) {
+bool DowowNetwork::Server::StartUnix(std::string path, bool dof) {
     // the server is already started
-    if (GetType() != SocketTypeUndefined) return false;
+    if (GetType() != SocketTypeUndefined)
+        return false;
 
     // try to create a socket
     socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -40,11 +41,6 @@ bool DowowNetwork::Server::StartUNIX(std::string path, bool dof) {
     if (dof && !access(path.c_str(), F_OK)) {
         // delete the file
         if (unlink(path.c_str()) == -1) {
-            #ifdef VERBOSE_DEBUG
-            cout << "[" << __FILE__ << ":" << __LINE__ << "]: "
-                << "failed to delete old socket file " << path
-                << endl;
-            #endif
             // failed to delete
             close(socket_fd);
             return false;
@@ -55,53 +51,45 @@ bool DowowNetwork::Server::StartUNIX(std::string path, bool dof) {
     sockaddr_un addr;
     addr.sun_family = AF_UNIX;
     memcpy(&addr.sun_path, path.c_str(), path.size() + 1);
-    if (bind(socket_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1) {
-        #ifdef VERBOSE_DEBUG
-        cout << "[" << __FILE__ << ":" << __LINE__ << "]: "
-            << "failed to bind the socket to file " << path
-            << endl;
-        #endif
-        // failed to bind
+    int bind_res = bind(
+        socket_fd,
+        reinterpret_cast<sockaddr*>(&addr),
+        sizeof(addr));
+
+    // failed to bind
+    if (bind_res == -1) {
         close(socket_fd);
         return false;
     }
 
     // set the socket to listen
     if (listen(socket_fd, SOMAXCONN) == -1) {
-        #ifdef VERBOSE_DEBUG
-        cout << "[" << __FILE__ << ":" << __LINE__ << "]: "
-            << "failed to make the socket listen"
-            << endl;
-        #endif
-        // failb
+        // fail
         close(socket_fd);
         return false;
     }
 
     // success
-    socket_type = SocketTypeUNIX;
+    socket_type = SocketTypeUnix;
     unix_socket_path = path;
-    #ifdef VERBOSE_DEBUG
-    cout << "[" << __FILE__ << ":" << __LINE__ << "]: "
-        << "started UNIX socket server on " << path
-        << endl;
-    #endif
 
     return true;
 }
 
-std::string DowowNetwork::Server::GetUNIXPath() {
+std::string DowowNetwork::Server::GetUnixPath() {
     return unix_socket_path;
 }
 
-bool DowowNetwork::Server::StartTCP(std::string ip, uint16_t port) {
+bool DowowNetwork::Server::StartTcp(std::string ip, uint16_t port) {
     // the server is already started
-    if (GetType() != SocketTypeUndefined) return false;
+    if (GetType() != SocketTypeUndefined)
+        return false;
 
     // try to create a socket
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     // check if failed
-    if (socket_fd == -1) return false;
+    if (socket_fd == -1)
+        return false;
 
     // allow reuse
     int reuse_flag = 1;
@@ -111,14 +99,19 @@ bool DowowNetwork::Server::StartTCP(std::string ip, uint16_t port) {
     sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htobe16(port);
-    // get the IP address
+    // parse the IP address
     if (!inet_aton(ip.c_str(), &addr.sin_addr)) {
         // invalid address
         close(socket_fd);
         return false;
     }
+
     // bind
-    if (bind(socket_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1) {
+    int bind_res = bind(
+        socket_fd,
+        reinterpret_cast<sockaddr*>(&addr),
+        sizeof(addr));
+    if (bind_res == -1) {
         // failed to bind
         close(socket_fd);
         return false;
@@ -132,7 +125,7 @@ bool DowowNetwork::Server::StartTCP(std::string ip, uint16_t port) {
     }
 
     // success
-    socket_type = SocketTypeTCP;
+    socket_type = SocketTypeTcp;
     tcp_socket_address = be32toh(addr.sin_addr.s_addr);
     tcp_socket_port = port;
 
@@ -145,7 +138,7 @@ uint32_t DowowNetwork::Server::GetTcpIp() {
 
 std::string DowowNetwork::Server::GetTcpIpString() {
     // convert the tcp socket address to string
-    in_addr addr{htobe32(tcp_socket_address)};
+    in_addr addr{ htobe32(tcp_socket_address) };
     return inet_ntoa(addr);
 }
 
@@ -158,10 +151,6 @@ uint8_t DowowNetwork::Server::GetType() {
 }
 
 void DowowNetwork::Server::Accept(std::list<Connection*> &conns) {
-    // check if server is not started
-    if (GetType() == SocketTypeUndefined)
-        return;
-
     while (true) {
         // accept
         Connection* conn = AcceptOne();
@@ -179,20 +168,22 @@ void DowowNetwork::Server::Accept(std::list<Connection*> &conns) {
 
 DowowNetwork::Connection* DowowNetwork::Server::AcceptOne() {
     // not connected
-    if (GetType() == SocketTypeUndefined) return 0;
+    if (GetType() == SocketTypeUndefined)
+        return 0;
 
     // nonblocking and can't read
-    if (nonblocking && !Utils::SelectRead(socket_fd)) return 0;
+    if (nonblocking && !Utils::SelectRead(socket_fd))
+        return 0;
 
     // accept
     int temp_fd = accept4(socket_fd, 0, 0, 0);
     // failed
     if (temp_fd == -1) return 0;
 
-
     // create a connection
     Connection *conn = new Connection(temp_fd);
-    conn->SetBlocking(!nonblocking);
+    // inherit the nonblocking state
+    conn->SetNonblocking(nonblocking);
     // success
     return conn;
 }
@@ -202,7 +193,7 @@ void DowowNetwork::Server::Close() {
     if (GetType() == SocketTypeUndefined) return;
 
     // UNIX socket - delete it
-    if (GetType() == SocketTypeUNIX)
+    if (GetType() == SocketTypeUnix)
         unlink(unix_socket_path.c_str());
 
     // close the server socket

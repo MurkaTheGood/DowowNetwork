@@ -96,8 +96,8 @@ int main(int argc, char** argv) {
     uint16_t port = 23050;
 
     // connect TCP
-    Client client;
-    if (!client.ConnectTCP(ip, port, false)) {
+    Client client(false);
+    if (!client.ConnectTcp(ip, port)) {
         cout << "Failed to connect to " << ip << ":" << port << endl;
         return 1;
     }
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
     // sleep before using UNIX sockets
     sleep(3);
 
-    if (!client.ConnectUNIX("unix_socket.sock", false)) {
+    if (!client.ConnectUnix("unix_socket.sock")) {
         cout << "Failed to connect to unix_socket.sock" << endl;
         return 1;
     }

@@ -66,7 +66,7 @@ void CheckBlocking(Server& server) {
     uint32_t timeout = close_me_req->Get<Value32U>("timeout")->Get();
     cout << "* sleeping for " << (int)timeout << " seconds" << endl;
     sleep(timeout);
-    conn->Close();
+    conn->Disconnect(true);
     cout << "* connection is closed" << endl;
     sleep(1);
     delete conn;
@@ -82,22 +82,22 @@ int main(int argc, char** argv) {
     // testing the blocking TCP server
     cout << "[STARTING THE TCP BLOCKING SERVER]" << endl;
     Server server;
-    bool result = server.StartTCP(
+    bool result = server.StartTcp(
         "127.0.0.1",                // IP (using localhost)
         23050                       // port
     );
     if (!result) cerr << "errno: " << errno << endl;
-    assert(server.GetType() == SocketTypeTCP && "Server failed to start, errno is logged above");
+    assert(server.GetType() == SocketTypeTcp && "Server failed to start, errno is logged above");
     cout << "[TCP SERVER ON " << server.GetTcpIpString() << ":" << server.GetTcpPort() << "]" << endl;
     CheckBlocking(server);
     server.Close();
     cout << "[TCP PASSED]" << endl;
 
     cout << "[STARTING THE UNIX BLOCKING SERVER]" << endl;
-    result = server.StartUNIX("unix_socket.sock", true);
+    result = server.StartUnix("unix_socket.sock", true);
     if (!result) cerr << "errno: " << errno << endl;
-    assert(server.GetType() == SocketTypeUNIX && "Server failed to start, errno is logged above");
-    cout << "[UNIX SERVER ON " << server.GetUNIXPath() << "]" << endl;
+    assert(server.GetType() == SocketTypeUnix && "Server failed to start, errno is logged above");
+    cout << "[UNIX SERVER ON " << server.GetUnixPath() << "]" << endl;
     CheckBlocking(server);
     server.Close();
     cout << "[UNIX PASSED]" << endl;

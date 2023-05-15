@@ -9,6 +9,13 @@
 #include "SocketType.hpp"
 
 namespace DowowNetwork {
+    // declaration for typedef below
+    class Server;
+
+    // the first argument is the server, that owns the connection
+    // the second argument is the connection, that has something to react on
+    typedef void (*ConnectionHandler)(Server *server, Connection *conn);
+
     class Server {
     private:
         // the file descriptor of server socket
@@ -26,6 +33,9 @@ namespace DowowNetwork {
         // tcp (host byteorder)
         uint32_t tcp_socket_address;
         uint16_t tcp_socket_port;
+
+        // handler for new connections
+        ConnectionHandler new_connection_handler;
     public:
         Server();
 
@@ -66,6 +76,11 @@ namespace DowowNetwork {
         // !Nonblocking mode: will return immidiately. If there were clients awaiting
         //          for connection, only the first will get connected.
         Connection* AcceptOne();
+
+        // Set the handler for a new connection
+        void SetNewConnectionHandler(ConnectionHandler handler);
+        // Get the handler for a new connection (0 if not set)
+        ConnectionHandler GetNewConnectionHandler();
 
         // close the server
         void Close();

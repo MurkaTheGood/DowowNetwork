@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 project(DowowNetwork)
 
 # add some options for build configurations
+option(SUPPORT_MULTITHREADING "Enables some minor tweaks in code, so that it will be working well in multithreaded applications" ON)
+option(BUILD_EXAMPLES "Build examples?")
 option(BUILD_TESTS "Build tests?" OFF)
 option(DEBUG "Include debug symbols?" OFF)
 option(DEBUG_VERBOSE "Print verbose debug messages? Works if DEBUG" OFF)
-option(DEBUG_DUMP_CONNECTIONS "Dump data transferred via sockets to disk? Works if DEBUG" OFF)
 
 # sources of some value types
 set(VALUES_SOURCES
@@ -30,21 +31,27 @@ set(SOURCES
     Server.cpp
     Value.cpp
     Utils.cpp
-#    DowowConnection.cpp
 )
 
 # use C++11
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -Wall")
+set(CMAKE_CXX_STANDART 11)
+# print all warnings
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
+# support multithreading
+if(SUPPORT_MULTITHREADING)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMULTITHREADING_TWEAKS")
+endif()
 
 if(!DEBUG)
+    # not debug, enable optimizations
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 else()
+    # include debug symbols
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+    # enable verbose debug
     if(DEBUG_VERBOSE)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVERBOSE_DEBUG")
-    endif()
-    if(DEBUG_DUMP_CONNECTIONS)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDUMP_CONNECTIONS")
     endif()
 endif()
 
@@ -64,4 +71,8 @@ add_dependencies(DowowNetwork All.hpp)
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+# adding the examples subdirectory if examples are enabled
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()

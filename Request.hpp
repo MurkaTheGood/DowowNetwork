@@ -7,69 +7,194 @@
 #include "Datum.hpp"
 
 namespace DowowNetwork {
+    /// A basic unit of Dowow Protocol data transfer.
     class Request {
     private:
+        /// The list of the arguments.
         std::list<Datum*> arguments;
 
-        // ID is used to indentify the actions within one session.
-        // It will be automatically initialized with an incremented number,
-        // each time a new Request is created.
+        /// The ID of the request.
         uint32_t id;
-        // The name of the action
+
+        /// The name of the request.
         std::string name;
     public:
+        /// Create a new Request with specified name.
+        /*!
+            \param name the name of the Request
+        */
         explicit Request(std::string name = "");
 
-        // Set the name
+        /// Set the name of the Request.
+        /*!
+            \param name the name to be set
+        */
         void SetName(std::string name);
-        // Set the ID
+        /// Set the ID of the Request.
+        /*!
+            \param id the ID to be set
+        */
         void SetId(uint32_t id);
 
-        // Get the name
+        /// Get the name of the Request.
+        /*!
+            \return The name assigned to the Request.
+        */
         std::string GetName();
-        // Get the ID
+        /// Get the ID of the Request.
+        /*!
+            \return The ID assigned to the Request.
+        */
         uint32_t GetId();
 
-        // Set the argument by pointer.
-        // Set the argument to 0 to unset it.
+        /// Set the Request argument.
+        /*!
+            This method is also used to delete the argument. Deletion
+            is performed by passing 0 as value.
+
+            \param name the name of the argument
+            \param value the pointer to the value that is to be set
+            \param to_copy whether the value must be copied or not
+
+            \warning
+                    If the value if not copied then it will be 'stolen'!
+                    The 'stolen' value must not be used after calling this
+                    method! You must not delete it!
+
+            \sa Set(std::string, Value&).
+        */
         void Set(std::string name, Value *value, bool to_copy = true);
-        // Set the argument by reference.
+        
+        /// Set the Request argument.
+        /*!
+            This method is used to set the argument without pointers usage.
+            Effectively calls the Set(std::string, Value*, bool).
+            The value is copied.
+
+            \param name the name of the argument
+            \param value the value that is to be set
+        */
         void Set(std::string name, Value &value);
-        // Get the argument.
-        // Do not delete it, the original is returned.
-        // Returns 0 if the argument is not set.
+        /// Get the Request argument.
+        /*!
+            This method is used to get an argument of the Request.
+
+            \return
+                - If the argument is set: pointer to that argument
+                - If the argument isn't set: null pointer.
+
+            \warning
+                The returned pointer points to the original Value!
+                It must never be deleted!
+        */
         Value* Get(std::string name);
 
-        // Emplace the argument.
+        /// Emplace the argument.
+        /*!
+            This method is used to set an argument without
+            intermediate code lines. Thanks to this method the assignment
+            may be done in one line.
+
+            \param name the name of the argument to emplace
+            \param value the value to emplace
+
+            \warning
+                Always specify the value type explicitly or you'll
+                likely get a compilation error!
+        */
         template<class T> void Emplace(std::string name, T value) {
             Set(name, &value, true);
         }
-        // Get the argument automatically converted to specified type.
-        // Returns 0 if the argument is not set or type is invalid.
+
+        /// Get the Request argument automatically casted to T.
+        /*!
+            Effectively calls Get() and dynamic_cast<T>.
+
+            \param name the name of the argument to Get
+
+            \return
+                - If types match: T pointer.
+                - If types mismatch: null pointer.
+
+            \warning
+                The returned pointer points to the original Value!
+                It must never be deleted!
+        */
         template<class T> T* Get(std::string name) {
             Value *res = Get(name);
             if (!res) return 0;
             return dynamic_cast<T*>(res);
         }
 
-        // Get the list of arguments.
+        /// Get the list of arguments.
+        /*!
+            \return
+                The reference to the list of all the arguments.
+
+            \warning
+                Never ever delete the elements of that list
+                or the list itself! The originals are returned!
+        */
         std::list<Datum*>& GetArguments();
 
-        // Serialize. See GetSize() to get the size of returned buffer.
-        // You must use delete[] to free memory of returned buffer.
+        /// Serialize the Request to byte stream.
+        /*!
+            Creates a buffer containing Request metadata and content.
+            The size of that buffer equals to the value returned by GetSize().
+
+            \return
+                The buffer containing serialized Request.
+
+            \warning
+                Use delete[] operator to delete the returned buffer!
+            \sa Deserialize(), GetSize().
+        */
         char* Serialize();
-        // Deserialize. Returns the amount of bytes used to deserialize the Request.
-        // Returns 0 of failed deserialization.
+        /// Deserialize the Request from byte stream.
+        /*!
+            \param data pointer to the byte stream beginning
+                   with request metadata
+            \param data_size the length of the data buffer (not the assumed
+                   request length).
+
+            \return
+                - On success: the amount of bytes used to deserialize the
+                                Request.
+                - On failure: 0.
+
+            \warning
+                data_size must be the length of the data buffer, not the
+                assumed length of the Request!
+            \sa Serialize(), GetSize().
+        */
         uint32_t Deserialize(char* data, uint32_t data_size);
-        // Get the size of serialized action.
+        /// Get the size of the serialized Request.
+        /*!
+            \return
+                The length of the buffer returned by Serialize().
+            \sa Serialize(), Deserialize()
+        */
         uint32_t GetSize();
 
-        // Create the deepcopy of other request
+        /// Create a deep copy of the Request.
+        /*!
+            Copies the original Request to the Request that this
+            method is being called on.
+
+            \param original the request to copy.
+        */
         void CopyFrom(Request* original);
 
-        // Convert to string
+        /// Convert the Request to a string.
+        /*!
+            Used for debugging and logging purposes.
+
+            \return
+                A string representation of the Request.
+        */
         std::string ToString();
 
+        /// Request destructor.
         ~Request();
     };
 }

@@ -91,6 +91,9 @@ bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port) {
     InitializeByFD(temp_socket_fd);
     temp_socket_fd = -1;
 
+    // setup the request id part
+    SetEvenRequestIdsPart(true);
+
     return true;
 }
 

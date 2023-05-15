@@ -7,40 +7,97 @@
 #include <cstdint>
 
 namespace DowowNetwork {
+    /// A data point in request.
+    /*!
+        Datum is like a function parameter. It basically serves
+        the same purpose.
+    */
     class Datum {
     private:
-        // the name of the datum
+        /// The name of the datum.
         std::string name = "";
-        // value
+        /// The value pointer.
         Value* value;
     public:
-        // create an empty datum
+        /// Create a new empty datum.
         Datum();
 
-        // returns true if Datum is valid, i.e. can be used in Action and Reaction
+        /// Check if the Datum is a valid one.
+        /*!
+            For the Datum to be valid, it must:
+            1.  have a name that consists only of ASCII letters, digits,
+                underscores and hyphens,
+            2.  have a name that has length in range between 1 and 32
+                (inclusive),
+            3.  have a value that is not a null pointer.
+            \return true if valid, false if not.
+        */
         bool GetValid() const;
-        // returns the name of the Datum
+        /// Get the name of the Datum.
+        /*!
+            \return The name of the Datum.
+        */
         std::string GetName() const;
-        // returns the type of the Datum's Value
+        /// Get the type of the Value.
+        /*!
+            \return The type of the value.
+            \sa ValueType.hpp.
+        */
         uint8_t GetType() const;
 
-        // set the name
+        /// Set the name of the value.
+        /*!
+            \param name the name to be set.
+            \sa GetValid().
+        */
         void SetName(std::string name);
-        // returns the Value pointer
+        /// Get the pointer to the value of the Datum.
+        /*!
+            \return The pointer to the value assigned to the value.
+        */
         Value* GetValue();
-        // sets a new Value.
+        /// Set a new value for the Datum.
+        /*!
+            \param value    the pointer to the value to be set.
+            \param to_copy  whether the value must be copied or
+                            the original must be saved.
+            \warning        If to_copy is false then the value will be
+                            'stolen' by the Datum and you must not use
+                            that value anymore!
+        */
         void SetValue(Value* value, bool to_copy = true);
 
-        // load the datum from bytes. Returns size of datum on success.
+        /// Deserialize the Datum from bytes stream.
+        /*!
+            \param data the pointer to the bytes array.
+            \param length the size of data array.
+            \return
+                - On success: The amount of bytes used to deserialize the data.
+                - On failure: 0.
+            \warning    One must always pass the array length as length
+                        parameter, not the assumed length of the Datum!
+            \sa Serialize().
+        */
         uint32_t Deserialize(const char* data, uint32_t length);
-        // convert the datum to raw bytes to transfer it over network (or store it as file - nevermind).
-        // On success: returns a pointer to buffer and writes its length to the reference in argument.
-        // On failure: returns 0, the length reference isn't accessed.
+        /// Serialize the Datum to bytes stream.
+        /*!
+            The returned buffer must be deleted using delete[]
+            operator. The length of the buffer equals to
+            the value returned by GetSize().
+
+            \return
+                - On success: The buffer that contains the serialized Datum,
+                - On failure: 0.
+            \sa Deserialize(), GetSize().
+        */
         char* Serialize();
-        // returns the size of the serialized buffer
+        /// Get the length of serialized Datum.
+        /*!
+            \return The length of the buffer returned by Serialize().
+        */
         uint32_t GetSize();
 
-        // destroy the datum
+        /// Datum destructor.
         ~Datum();
     };
 };

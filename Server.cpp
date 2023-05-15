@@ -184,8 +184,22 @@ DowowNetwork::Connection* DowowNetwork::Server::AcceptOne() {
     Connection *conn = new Connection(temp_fd);
     // inherit the nonblocking state
     conn->SetNonblocking(nonblocking);
+
+    // call the handler if set
+    if (GetNewConnectionHandler()) {
+        (*GetNewConnectionHandler())(this, conn);
+    }
+
     // success
     return conn;
+}
+
+void DowowNetwork::Server::SetNewConnectionHandler(ConnectionHandler handler) {
+    new_connection_handler = handler;
+}
+
+DowowNetwork::ConnectionHandler DowowNetwork::Server::GetNewConnectionHandler() {
+    return new_connection_handler;
 }
 
 void DowowNetwork::Server::Close() {

@@ -6,8 +6,7 @@
 #include "Request.hpp"
 
 DowowNetwork::Request::Request(std::string name) : name(name) {
-    static uint32_t suggested_id = 0;
-    id = suggested_id++;
+
 }
 
 void DowowNetwork::Request::SetName(std::string name) {

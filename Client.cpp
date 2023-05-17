@@ -32,6 +32,8 @@ void DowowNetwork::Client::SubPoll() {
             close(temp_socket_fd);
         } else {
             InitializeByFD(temp_socket_fd);
+            // set even request IDs part
+            SetEvenRequestIdsPart(true);
         }
         temp_socket_fd = -1;
     }

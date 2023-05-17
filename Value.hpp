@@ -1,3 +1,9 @@
+/*!
+    \file
+
+    This file defines the base class for all values.
+*/
+
 #ifndef __DOWOW_NETWORK__VALUE_
 #define __DOWOW_NETWORK__VALUE_
 

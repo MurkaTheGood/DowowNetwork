@@ -1,3 +1,9 @@
+/*!
+    \file
+
+    This file defines the Connection class and related typedefs.
+*/
+
 #ifndef __DOWOW_NETWORK__CONNECTION_H_
 #define __DOWOW_NETWORK__CONNECTION_H_
 
@@ -24,11 +30,16 @@ namespace DowowNetwork {
     // declare the connection for typedef
     class Connection;
 
-    // the first argument is the connection that called the handler
-    // the second argument is the request that is being handled
-    // the third argument is the ID of the request
-    // must return true if processed, false if further processing is needed
-    typedef bool (*RequestHandler)(Connection*, Request*, uint32_t);
+    //! The function pointer type for Request-related handlers.
+    /*!
+        \param conn the Connection that calls the handler
+        \param req the Request that something occurs with
+        \param id the ID of the Request that something occurs with
+
+        \return
+            The function must return true if the Request is processed.
+    */
+    typedef bool (*RequestHandler)(Connection* conn, Request* req, uint32_t id);
 
     /// A connection between two endpoints.
     class Connection {
@@ -243,7 +254,7 @@ namespace DowowNetwork {
         std::string tag;
 
         /// Default constructor.
-        /// Effectively just calls InitializeByFD().
+        //! Effectively just calls InitializeByFD().
         Connection(int socket_fd);
 
         /// Set the connection to be blocking or nonblocking.
@@ -305,60 +316,210 @@ namespace DowowNetwork {
         */
         uint32_t Push(Request& req, bool change_request_id = true);
 
-        // Send the request and treat it as a command.
-        // Behavior:
-        //  a)  in blocking mode it will send the request and wait
-        //      for response with specific ID. No separate thread is needed.
-        //  b)  in non-blocking mode it will Push() the request and
-        //      wait for response with its ID. WARNING! For proper
-        //      functioning of this method, it must be run in a separate
-        //      thread relative to Poll()ing loop (if nonblocking mode)
-        Request* Execute(Request *req, bool must_copy = true, time_t timeout = 30);
-        Request* Execute(Request &req, time_t timeout = 30);
+        /// Push the Request to the remote endpoint and wait for response.
+        /*!
+            Behavior differs in blocking and nonblocking modes:
+            1.  In blocking mode: will Push() the Request and return only
+                when the response is received (or a problem occured)
+            2.  In nonblocking mode: will Push() the Request, subscribe for
+                its ID and wait for response. Poll()ing must be done in a
+                separate thread.
 
-        // pull the request from receive queue
-        // !DELETE IT BY YOURSELF!
+            \param request the request to execute
+            \param must_copy must the request get copied or stolen?
+            \param timeout the max time to wait for response.
+
+            \return
+                - On success: the response (you must delete it by yourself
+                    with delete operator)
+                - On failure or timeout: null pointer.
+
+            \warning
+                    If the Connection is nonblocking then the polling
+                    must be done in a separate thread.
+
+            \sa Push(), Poll().
+        */
+        Request* Execute(Request *request, bool must_copy = true, time_t timeout = 30);
+        /// Push the Request to the remote endpoint and wait for response.
+        /*!
+            \sa Execute(Request*, bool, time_t)
+        */
+        Request* Execute(Request &request, time_t timeout = 30);
+
+        /// Pull the Request from the receive queue.
+        /*!
+            \return
+                - If the receive queue is empty then null pointer.
+                - If the receive queue is not empty then the first
+                    Request from it.
+
+            \warning
+                You must delete the returned pointer by yourself with
+                delete operator.
+
+            \sa Push(), Execute()
+        */
         Request* Pull();
 
-        // disconnect.
-        // if forced, then it will be closed immidiately.
-        // if not forced, then all the remaining data will be sent.
+        /// Disconnect.
+        /*!
+            Performs the disconnection.
+
+            - On forced disconnection: the connection is closed immidiately.
+            - On graceful disconnection: the data from the send queue and send
+                buffer is sent, then the connection is closed.
+
+            \param forced must the forced disconnection be performed?
+        */
         void Disconnect(bool forced = false);
-        // true if connected (socket_type == SocketTypeUndefined)
+        /// Check if connected.
+        /*!
+            \return
+                true if connected.
+        */
         bool IsConnected();
-        // true if graceful disconnection is in progress
+        /// Check if disconnection is in progress.
+        /*!
+            \return
+                true if Disconnect() was called and the connection
+                will be closed soon.
+            
+            \warning
+                No new requests must be pushed while disconnecting!
+        */
         bool IsDisconnecting();
 
-        // returns the socket type.
-        // returns SocketTypeUndefined if not connected
+        /// Get the socket type.
+        /*!
+            \return
+                The type of the socket, as defined in SocketType enum.
+
+            \warning
+                If not connected then SocketTypeUndefined is returned.
+
+            \sa SocketType.hpp.
+        */
         uint8_t GetType();
 
-        // set the default handler
+        /// Set the default handler.
+        /*!
+            This handler will be called if conditions are satisfied:
+            - no named handlers were called,
+            - the request is not pushed via Execute() method.
+
+            \param h the handler to set
+        */
         void SetHandlerDefault(RequestHandler h);
-        // get the default handler
+        /// Get the default handler.
+        /*!
+            \return The default handler. Null pointer if not set.
+        */
         RequestHandler GetHandlerDefault();
 
-        // set the named handler
+        /// Set the named handler.
+        /*!
+            Set null pointer to remove the handler.
+
+            \param name the name of the handler
+            \param h the handler to set
+        */
         void SetHandlerNamed(std::string name, RequestHandler h);
-        // get the named handler
+        /// Get the named handler.
+        /*!
+            \param name the name of the handler
+
+            \return
+                - If the handler is set: the handler
+                - If no handler is set: null pointer
+        */
         RequestHandler GetHandlerNamed(std::string name);
 
-        // the send block size
+        /// Set the size of the send block.
+        /*!
+            \param bs the new size of the send block (maximum
+                    amount of bytes that can be sent per
+                    one send() call)
+
+            \warning
+                    Setting this parameter to low value
+                    will decrease the transfer speed.
+
+            \sa GetSendBlockSize().
+        */
         void SetSendBlockSize(uint32_t bs);
+        /// Get the size of the send block
+        /*!
+            \return
+                The size of the send block.
+
+            \sa SetSendBlockSize().
+        */
         uint32_t GetSendBlockSize();
 
-        // the recv block size
+        /// Set the size of the receive block.
+        /*!
+            \param bs the new size of the receive block (maximum
+                    amount of bytes that can be received per
+                    one recv() call)
+
+            \warning
+                    Setting this parameter to low value
+                    will decrease the transfer speed.
+
+            \sa GetRecvBlockSize().
+        */
         void SetRecvBlockSize(uint32_t bs);
+        /// Get the size of the receive block
+        /*!
+            \return
+                The size of the receive block.
+
+            \sa SetRecvBlockSize().
+        */
         uint32_t GetRecvBlockSize();
 
-        // the max size of request to receive
+        /// Set the maximum size of Request to receive.
+        /*!
+            If the request that is to be received has size
+            more than this value then the Connection will be
+            forcefully closed.
+
+            \param size the maximum size of Request that
+                    can be received.
+
+            \warning
+                    Beware that the Request that violates this
+                    limit will cause the disconnection! Do not set
+                    too small values!
+
+            \sa GetMaxRequestSize().
+        */
         void SetMaxRequestSize(uint32_t size);
+        /// Get the maximum size of Request to receive.
+        /*!
+            \return
+                    The maximum size of the Request that can
+                    be received.
+
+            \sa SetMaxRequestSize().
+        */
         uint32_t GetMaxRequestSize();
 
-        // Sets the session data. Does not copy it.
-        // To remove session data, pass 0 as data.
-        // BEWARE: the data will not get deleted in the destructor,
-        // you must delete the data by yourself.
+        /// Set the session data.
+        /*!
+            This function stores the pointer to the session
+            data object so that you could access it later without
+            using additional maps. This function does not copy the
+            passed session data object.
+
+            \param data the pointer to the session data to set.
+            \warning
+                    The session data is not copied! The data won't
+                    get deleted in the destructor, you have to delete
+                    it by yourself when it is no longer needed.
+             \sa GetSessionData().
+        */
         template<class T> void SetSessionData(T* data) {
             if (!data) {
                 // data is to be reset
@@ -369,13 +530,30 @@ namespace DowowNetwork {
             }
         }
 
-        // gets the session data.
+        /// Get the session data.
+        /*!
+            This function will cash the untyped session data pointer
+            saved in the Connection to the specfied type.
+            If no session data is set then null pointer is returned.
+
+            \return
+                    The pointer to the session data.
+
+            \sa SetSessionData().
+        */
         template<class T> T* GetSessionData() {
             // not set
             if (!session_data) return 0;
             return reinterpret_cast<T*>(session_data);
         }
 
+        /// The connection destructor.
+        /*!
+            \warning
+                    This destructor does not delete the session data!
+
+            \sa SetSessionData().
+        */
         virtual ~Connection();
     };
 }

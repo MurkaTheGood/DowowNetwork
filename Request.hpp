@@ -1,3 +1,9 @@
+/*!
+    \file
+
+    This file defines the Request.
+*/
+
 #ifndef __DOWOW_NETWORK__REQUEST_H_
 #define __DOWOW_NETWORK__REQUEST_H_
 

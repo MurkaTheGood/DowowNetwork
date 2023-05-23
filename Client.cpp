@@ -7,56 +7,15 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/select.h>
+#include <sys/timerfd.h>
+#include <sys/eventfd.h>
+#include <sys/poll.h>
 #include <time.h>
+#include <thread>
 
 #include "Utils.hpp"
 
-void DowowNetwork::Client::SubPoll() {
-    // do nothing if not connecting
-    if (!IsConnecting()) return;
-
-    // check if can write (i.e. send data)
-    if (Utils::SelectWrite(temp_socket_fd)) {
-        // check if succeed
-        int socket_error;
-        socklen_t socket_error_len = sizeof(socket_error);
-        getsockopt(
-            temp_socket_fd,
-            SOL_SOCKET,
-            SO_ERROR,
-            &socket_error,
-            &socket_error_len);
-
-        // error?
-        if (socket_error) {
-            close(temp_socket_fd);
-        } else {
-            InitializeByFD(temp_socket_fd);
-            // set even request IDs part
-            SetEvenRequestIdsPart(true);
-        }
-        temp_socket_fd = -1;
-    }
-}
-
-DowowNetwork::Client::Client(bool nonblocking) : Connection() {
-    // set the nonblocking state
-    SetNonblocking(nonblocking);
-}
-
-
-bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port) {
-    // check if connected or connecting
-    if (IsConnected() || IsConnecting())
-        return false;
-
-    // temp socket fd
-    temp_socket_fd =
-        socket(AF_INET, SOCK_STREAM | (IsNonblocking() ? SOCK_NONBLOCK : 0), 0);
-    // failed to create the temp socket
-    if (temp_socket_fd == -1)
-        return false;
-
+void DowowNetwork::Client::TcpThreadFunc(Client *c, std::string ip, uint16_t port, int timeout) {
     // create the address to connect to
     sockaddr_in addr;
     addr.sin_family = AF_INET;
@@ -64,84 +23,115 @@ bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port) {
     // ip
     if (!inet_aton(ip.c_str(), &addr.sin_addr)) {
         // invalid
-        close(temp_socket_fd);
-        temp_socket_fd = -1;
-        return false;
+        close(c->temp_socket_fd);
+        c->temp_socket_fd = -1;
+        // notify
+        Utils::WriteToEventFd(c->connect_event, 1);
+        return;
     }
 
     // connect
-    int connect_res = connect(temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
+    int connect_res = connect(
+        c->temp_socket_fd,
+        (sockaddr*)&addr,
+        sizeof(addr));
 
     if (connect_res == -1) {
-        if (!IsNonblocking()) {
-            // the socket is blocking and we failed to connect
-            close(temp_socket_fd);
-            temp_socket_fd = -1;
-            return false;
-        }
-        // the socket is nonblocking, connecting in background
-        if (errno == EINPROGRESS) {
-            return true;
-        }
-        // error
-        close(temp_socket_fd);
-        temp_socket_fd = -1;
-        return false;
+        // fail
+        close(c->temp_socket_fd);
+        c->temp_socket_fd = -1;
+        // notify
+        Utils::WriteToEventFd(c->connect_event, 1);
+        return;
     }
 
     // connected
-    InitializeByFD(temp_socket_fd);
-    temp_socket_fd = -1;
+    c->InitializeByFD(c->temp_socket_fd);
+    c->temp_socket_fd = -1;
 
     // setup the request id part
-    SetEvenRequestIdsPart(true);
+    c->SetEvenRequestIdsPart(true);
 
-    return true;
+    // notify
+    Utils::WriteToEventFd(c->connect_event, 1);
 }
 
-bool DowowNetwork::Client::ConnectUnix(std::string socket_path) {
-    // check if connected or connecting
-    if (IsConnected() || IsConnecting())
-        return false;
-
-    // temp socket fd
-    temp_socket_fd =
-        socket(AF_UNIX, SOCK_STREAM | (IsNonblocking() ? SOCK_NONBLOCK : 0), 0);
-
-    // failed to create the temp socket
-    if (temp_socket_fd == -1)
-        return false;
-
+void DowowNetwork::Client::UnixThreadFunc(Client *c, std::string socket_path, int timeout) {
     // create the address to connect to
     sockaddr_un addr;
     addr.sun_family = AF_UNIX;
     memcpy(addr.sun_path, socket_path.c_str(), socket_path.size() + 1);
 
     // connect
-    int connect_res = connect(temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
+    int connect_res = connect(c->temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
 
     if (connect_res == -1) {
-        if (!IsNonblocking()) {
-            // the socket is blocking and we failed to connect
-            close(temp_socket_fd);
-            temp_socket_fd = -1;
-            return false;
-        }
-        // the socket is nonblocking, connecting in background
-        if (errno == EINPROGRESS) {
-            return true;
-        }
-        // error
-        close(temp_socket_fd);
-        temp_socket_fd = -1;
-        return false;
+        // fail
+        close(c->temp_socket_fd);
+        c->temp_socket_fd = -1;
+        // notify
+        Utils::WriteToEventFd(c->connect_event, 1);
+        return;
     }
 
     // connected
-    InitializeByFD(temp_socket_fd);
-    temp_socket_fd = -1;
+    c->InitializeByFD(c->temp_socket_fd);
+    c->temp_socket_fd = -1;
 
-    return true;
+    // request part setup
+    c->SetEvenRequestIdsPart(true);
+
+    // notify
+    Utils::WriteToEventFd(c->connect_event, 1);
+}
+
+DowowNetwork::Client::Client() : Connection() {
+
+}
+
+
+void DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port, int timeout) {
+    // check if connected or connecting
+    if (IsConnected() || IsConnecting())
+        return;
+
+    // temp socket fd
+    temp_socket_fd =
+        socket(AF_INET, SOCK_STREAM, 0);
+    // failed to create the temp socket
+    if (temp_socket_fd == -1)
+        return;
+
+    // create an event for connect
+    connect_event = eventfd(0, 0);
+
+    std::thread t(TcpThreadFunc, this, ip, port, timeout);
+    t.detach();
+
+    // wait for thread to exit
+    pollfd pollfds { connect_event, POLLIN, 0 };
+    poll(&pollfds, 1, timeout);
+}
+
+void DowowNetwork::Client::ConnectUnix(std::string socket_path, int timeout) {
+    // check if connected or connecting
+    if (IsConnected() || IsConnecting())
+        return;
+
+    // temp socket fd
+    temp_socket_fd =
+        socket(AF_UNIX, SOCK_STREAM, 0);
+
+    // failed to create the temp socket
+    if (temp_socket_fd == -1)
+        return;
+
+    std::thread t(UnixThreadFunc, this, socket_path, timeout);
+    t.detach();
+
+    // wait for thread to exit
+    pollfd pollfds { connect_event, POLLIN, 0 };
+    poll(&pollfds, 1, timeout);
 }
 
 bool DowowNetwork::Client::IsConnecting() {

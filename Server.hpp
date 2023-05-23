@@ -10,6 +10,9 @@
 #include <string>
 #include <list>
 
+#include <sys/eventfd.h>
+#include <mutex>
+
 #include "Connection.hpp"
 #include "Request.hpp"
 #include "SocketType.hpp"
@@ -18,52 +21,51 @@ namespace DowowNetwork {
     // declaration for typedef below
     class Server;
 
-    //! The function pointer type for Server-Connection-related handlers.
-    /*!
-        \param server the server that calls the handler
-        \param conn the connection that something occurs with
-    */
     typedef void (*ConnectionHandler)(Server *server, Connection *conn);
 
-    /// Server.
-    /*!
-        The endpoint that accepts the connections.
-    */
     class Server {
     private:
-        // the file descriptor of server socket
+        // server socket
         int socket_fd = -1;
+        // accepted clients
+        std::list<Connection*> connections;
 
-        // is non-blocking?
-        bool nonblocking = false;
-
-        // used socket type (undefined by default)
+        // socket type (undefined if server is not running)
         uint8_t socket_type = SocketTypeUndefined; 
 
-        // unix
+        // unix socket path
         std::string unix_socket_path;
 
         // tcp (host byteorder)
         uint32_t tcp_socket_address;
         uint16_t tcp_socket_port;
 
-        // handler for new connections
-        ConnectionHandler new_connection_handler;
+        //! 'stopped' event.
+        //! Occurs when the server is stopped.
+        //! Being created only when the shutdown is requested.
+        int stopped_event = -1;
+        //! 'to_stop' event.
+        //! Occurs when the server shutdown is requested.
+        int to_stop_event = -1;
+
+        // mutex for any operations
+        std::recursive_mutex mutex_server;
+
+        //! Handler for new connections.
+        //! Called right after the polling thread for
+        //! connection is started.
+        ConnectionHandler connected_handler;
+        //! Handler for disconnection.
+        //! Called
+        ConnectionHandler disconnected_handler;
+
+        /// Accept one client.
+        Connection* AcceptOne();
+
+        static void ServerThreadFunc(Server *server);
     public:
         /// Server constructor.
         Server();
-
-        /// Set whether the server must be nonblocking.
-        /*!
-            - In nonblocking mode the accept operations return immidiately.
-            - In blocking mode the accept operations return once someone is
-                accepted or an error occurs.
-
-            \param nonblocking whether the Server must be nonblocking
-
-            \sa Accept(), AcceptOne().
-        */
-        void SetNonblocking(bool nonblocking);
 
         /// Start the UNIX domain server.
         /*!
@@ -152,68 +154,36 @@ namespace DowowNetwork {
         uint8_t GetType();
 
 
-        /// Accept pending clients and add them to the list.
-        /*!
-            Behavior differs:
-            -   In blocking mode: will block the execution until someone
-                connects (no timeout at all).
-            -   In nonblocking mode: will return immidiately after accepting
-                pending clients and adding them to the list.
+        /// Set the 'connected' handler.
+        inline void SetConnectedHandler(ConnectionHandler handler) {
+            mutex_server.lock();
+            connected_handler = handler;
+            mutex_server.unlock();
+        }
+        /// Get the 'connected' handler.
+        inline ConnectionHandler GetConnectedHandler() {
+            return connected_handler;
+        }
+        /// Set the 'disconnected' handler.
+        inline void SetDisconnectedHandler(ConnectionHandler handler) {
+            mutex_server.lock();
+            disconnected_handler = handler;
+            mutex_server.unlock();
+        }
+        /// Get the 'disconnected' handler.
+        inline ConnectionHandler GetDisconnectedHandler() {
+            return disconnected_handler;
+        }
 
-            \param connections the list of connections.
+        //! Close the server.
+        void Stop(int timeout = 0);
 
-            \warning The method caller is the new owner of new Connections.
-                    Delete them using delete operator.
-
-            \sa AcceptOne().
-        */
-        void Accept(std::list<Connection*>& connections);
-
-        /// Accept one client.
-        /*!
-            Behavior differs:
-            -   In blocking mode: will block the execution until someone
-                connects (no timeout at all).
-            -   In nonblocking mode: accept the first client in queue of
-                pending clients, return.
-
-            \return
-                - If someone connected: pointer to the new connection.
-                - If nobody connected: null-pointer.
-
-            \warning The method caller is the new owner of a new Connection.
-                    Delete it using delete operator.
-
-            \sa Accept().
-        */
-        Connection* AcceptOne();
-
-        /// Set the New Connection Handler.
-        /*!
-            That handler is called when a new client is accepted.
-
-            \param handler the new handler (or 0 to reset)
-        */
-        void SetNewConnectionHandler(ConnectionHandler handler);
-        /// Get the New Connection Handler.
-        /*!
-            \return Assigned New Connection Handler.
-        */
-        ConnectionHandler GetNewConnectionHandler();
-
-        /// Close the server.
-        /*!
-            Will close the server socket.
-
-            \warning
-                    All accepted connection are in your ownership! You
-                    must close them by yourself!
-        */
-        void Close();
+        //! Wait for server to stop.
+        void WaitForStop(int timeout = -1);
 
         /// Server destructor.
         /*!
-            Calls Close() method.
+            Calls Stop(-1) method.
         */
         ~Server();
     };

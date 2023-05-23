@@ -1,12 +1,20 @@
 #include "Connection.hpp"
 
 #include <cstring>
+
 #include <endian.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/socket.h>
+#include <sys/eventfd.h>
+#include <sys/timerfd.h>
 
 #include "Utils.hpp"
+
+#include <iostream>
+using namespace std;
 
 #ifdef VERBOSE_DEBUG
 #include <iostream>
@@ -17,30 +25,148 @@ using namespace std;
 #define PRINT_DEBUG(str) {  }
 #endif
 
-#ifdef MULTITHREADING_TWEAKS
 #define MTLock(name, mut) std::lock_guard<typeof(mut)> name(mut);
-#else
-#define MTLock(name, mut) {};
-#endif
+
+void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
+    while (true) {
+        c->mutex_main.lock();
+        // create the fds for poll
+        pollfd pollfds[5];
+        // add 'to_stop' event
+        pollfds[0].fd = c->to_stop_event;
+        pollfds[0].events = POLLIN;
+        // add socket fd
+        pollfds[1].fd = c->socket_fd;
+        pollfds[1].events = POLLIN | (c->HasSomethingToSend() ? POLLOUT : 0);
+        // our still-alive timer
+        pollfds[2].fd = c->our_sa_timer;
+        pollfds[2].events = POLLIN;
+        // their keep-alive timer
+        pollfds[3].fd = c->their_na_timer;
+        pollfds[3].events = POLLIN;
+        // push event (it's not handled, we just need poll to return)
+        pollfds[4].fd = c->push_event;
+        pollfds[4].events = POLLIN;
+        c->mutex_main.unlock();
+
+        // let's poll!
+        poll(
+            pollfds,
+            sizeof(pollfds) / sizeof(pollfds[0]),
+            -1);
+
+        c->mutex_main.lock();
+
+        // ***************
+        // 'to_stop' event
+        // ***************
+        if (pollfds[0].revents & POLLIN) {
+            cout << "'to_stop' event" << endl;
+            break;
+        }
+
+        // *************
+        // socket events
+        // *************
+        if (pollfds[1].revents & POLLIN) {
+            cout << "receive event" << endl;
+            if (!c->Receive()) {
+                cout << "receive event fail" << endl;
+                // error
+                break;
+            }
+        }
+        if (pollfds[1].revents & POLLOUT) {
+            cout << "send event" << endl;
+            if (!c->Send()) {
+                cout << "send event fail" << endl;
+                // error
+                break;
+            }
+        }
+        // *********************
+        // our still-alive event
+        // *********************
+        if (pollfds[2].revents & POLLIN) {
+            cout << "still-alive timer" << endl;
+            Request *keep_alive = new Request("_");
+            c->Push(keep_alive);
+
+            // read the value (or else the timer will break)
+            uint64_t void_buf;
+            read(pollfds[2].fd, &void_buf, sizeof(void_buf));
+
+            // update the timeout
+            Utils::SetTimerFdTimeout(
+                c->our_sa_timer,
+                c->our_sa_interval);
+        }
+        // *********************
+        // their not-alive event
+        // *********************
+        if (pollfds[3].revents & POLLIN) {
+            cout << "timed out timer" << endl;
+            // close, they're timed out.
+            break;
+        }
+        c->mutex_main.unlock();
+    }
+
+    // mark as disconnecting
+    c->is_disconnecting = true;
+
+    // notify all events
+    if (c->stopped_event != -1) {
+        Utils::WriteToEventFd(c->stopped_event, 1);
+    }
+
+    // close
+    shutdown(c->socket_fd, SHUT_RDWR);
+    close(c->socket_fd);
+    close(c->push_event);
+    close(c->our_sa_timer);
+    close(c->their_na_timer);
+    close(c->to_stop_event);
+
+    // delete
+    c->DeleteSendBuffer();
+    c->DeleteRecvBuffer();
+    while (c->recv_queue.size()) {
+        delete c->recv_queue.front();
+        c->recv_queue.pop();
+    }
+    while (c->send_queue.size()) {
+        delete c->send_queue.front();
+        c->send_queue.pop();
+    }
+
+    // mark as undefined
+    c->socket_type = SocketTypeUndefined;
+
+    c->mutex_main.unlock();
+}
 
 bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
     // no request
     if (!r) return false;
 
-    MTLock(__hm, mutex_handlers);
-
     // get the named handler
     auto h = GetHandlerNamed(r->GetName());
     // try to handle
-    if (h && (*h)(this, r, r->GetId()))
+    if (h) {
+        std::thread t(*h, this, r);
+        t.detach();
         return true;
+    }
 
     // default handler
     h = GetHandlerDefault();
 
     // couldn't handle using named handler, using default
-    if (h && (*h)(this, r, r->GetId()))
+    if (h) {
+        std::thread t(*h, this, r);
         return true;
+    }
     
     return false;
 }
@@ -51,37 +177,23 @@ DowowNetwork::Connection::Connection() {
 }
 
 void DowowNetwork::Connection::DeleteSendBuffer() {
-    MTLock(__sm, mutex_send);
-
     delete[] send_buffer;
     send_buffer = 0;
     send_buffer_length = 0;
     send_buffer_offset = 0;
-
-    PRINT_DEBUG("Connection: deleted the send buffer");
 }
 
 void DowowNetwork::Connection::DeleteRecvBuffer() {
-    MTLock(__rm, mutex_recv);
-
     delete[] recv_buffer;
     recv_buffer = 0;
     recv_buffer_length = 0;
     recv_buffer_offset = 0;
     is_recv_length = true;
-
-    PRINT_DEBUG("Connection: deleted the receive buffer");
 }
 
-void DowowNetwork::Connection::Receive(bool nonblocking) {
-    MTLock(__rm, mutex_recv);
-
-    // receiving request length
-    while (is_recv_length) {
-        // nonblocking - check if can't read
-        if (nonblocking && !Utils::SelectRead(socket_fd))
-            break;
-
+bool DowowNetwork::Connection::Receive() {
+    // receiving the request length
+    if (is_recv_length) {
         // try to receive the request length to buffer length
         // (effectively interchangable definitions)
         int recv_res = recv(
@@ -92,15 +204,9 @@ void DowowNetwork::Connection::Receive(bool nonblocking) {
 
         // check results
         if (recv_res == -1 || recv_res == 0) {
-            PRINT_DEBUG("Connection: length receival; recv() returned " << recv_res)
-
             // the connection is broken
-            Close();
-            break;
+            return false;
         } else {
-            // update their KA
-            their_next_ka = time(0) + their_ka_interval_limit;
-
             // good, increase the offset
             recv_buffer_offset += recv_res;
 
@@ -111,10 +217,8 @@ void DowowNetwork::Connection::Receive(bool nonblocking) {
 
                 // check if too big
                 if (recv_buffer_length > recv_buffer_max_length) {
-                    PRINT_DEBUG("Connection: length receival; request size violation (" << recv_buffer_length << "), closing");
-
-                    Close();
-                    break;
+                    // the connection is broken
+                    return false;
                 }
 
                 // offset for data must be set to be after the size
@@ -128,18 +232,11 @@ void DowowNetwork::Connection::Receive(bool nonblocking) {
 
                 // going to receive the body
                 is_recv_length = false;
-
-                // break the loop
-                break;
             }
         }
     }
     // receiving the request itself
-    while (!is_recv_length) {
-        // can't blocking read while nonblocking
-        if (nonblocking && !Utils::SelectRead(socket_fd))
-            break;
-
+    else {
         // bytes left to receive
         uint32_t bytes_left =
             recv_buffer_length - recv_buffer_offset;
@@ -153,18 +250,9 @@ void DowowNetwork::Connection::Receive(bool nonblocking) {
 
         // check results
         if (recv_res == -1 || recv_res == 0) {
-            PRINT_DEBUG("Connection: body receival; recv() returned " << recv_res)
-
             // connection is broken
-            Close();
-            break;
+            return false;
         } else {
-            // debug log
-            PRINT_DEBUG("Connection: body receival; received " << recv_res << " bytes");
-            
-            // update their KA
-            their_next_ka = time(0) + their_ka_interval_limit;
-
             // increase the offset
             recv_buffer_offset += recv_res;
 
@@ -175,55 +263,42 @@ void DowowNetwork::Connection::Receive(bool nonblocking) {
                 uint32_t used = req->Deserialize(recv_buffer, recv_buffer_length);
 
                 if (used == 0) {
-                    // debug log
-                    PRINT_DEBUG(
-                        "Connection: failed to deserialize the request, deleted");
-
                     // fail :-(
                     delete req;
                 } else {
                     // check if keep_alive
-                    if (use_keep_alive && req->GetName() == "keep_alive") {
-                        PRINT_DEBUG("Connection: received a keep-alive request");
+                    if (req->GetName() == "_") {
+                        // just delete it
                         delete req;
                     } else {
-                        // debug log
-                        PRINT_DEBUG(
-                            "Connection: received request is pushed to recv_queue");
-
                         // try to process using handlers
                         if (!PassThroughHandlers(req)) {
-                            // not processed - push to queue
-                            MTLock(__rqm, mutex_recv_queue);
                             recv_queue.push(req);
-                        } else {
-                            // processed - delete
-                            delete req;
                         }
                     }
                 }
                 // delete the buffer
                 DeleteRecvBuffer();
-                break;
             }
         }
     }
+
+    // update the timeout
+    Utils::SetTimerFdTimeout(
+        their_na_timer,
+        their_na_interval);
+
+    // good
+    return true;
 }
 
-void DowowNetwork::Connection::Send(bool nonblocking) {
-    MTLock(__sm, mutex_send);
-    MTLock(__sqm, mutex_send_queue);
-
+bool DowowNetwork::Connection::Send() {
     // pop the send queue if the buffer is empty
     if (!send_buffer && send_queue.size())
         PopSendQueue();
 
     // check if has data to send
-    while (send_buffer) {
-        // nonblocking, but can't write
-        if (nonblocking && !Utils::SelectWrite(socket_fd))
-            break;
-
+    if (send_buffer) {
         // bytes left to send
         uint32_t left_to_send =
             send_buffer_length - send_buffer_offset;
@@ -238,70 +313,28 @@ void DowowNetwork::Connection::Send(bool nonblocking) {
 
         // check result
         if (send_res == -1 || send_res == 0) {
-            // debug log
-            PRINT_DEBUG("Connection: send() returned " << send_res);
-
-            // connection is broken
-            Close();
-            return;
+            // the connection is broken
+            return false;
         } else {
-            // update our KA
-            our_next_ka = time(0) + our_ka_interval;
-
-            // debug log
-            PRINT_DEBUG("Connection: sent " << send_res << " bytes");
-
             // increase offset
             send_buffer_offset += send_res;
             // sent everything
             if (send_buffer_offset == send_buffer_length) {
-                PRINT_DEBUG("Connection: the request is sent!")
                 DeleteSendBuffer();
             }
-            // nonblocking - break
-            if (nonblocking) break;
         }
     }
-}
 
-void DowowNetwork::Connection::Close() {
-    // lock everything
-    MTLock(__sm, mutex_send);
-    MTLock(__rm, mutex_recv);
-    MTLock(__sqm, mutex_send_queue);
-    MTLock(__rqm, mutex_recv_queue);
+    // update the timeout
+    Utils::SetTimerFdTimeout(
+        our_sa_timer,
+        our_sa_interval);
 
-    // check if already closed
-    if (socket_type == SocketTypeUndefined) return;
-
-    // reset the buffers
-    DeleteRecvBuffer();
-    DeleteSendBuffer();
-
-    // close the socket
-    shutdown(socket_fd, SHUT_RDWR);
-    close(socket_fd);
-
-    // delete all the queued data
-    while (send_queue.size()) {
-        Request* r = send_queue.front();
-        delete r;
-        send_queue.pop();
-    }
-    while (recv_queue.size()) {
-        Request* r = recv_queue.front();
-        delete r;
-        recv_queue.pop();
-    }
-
-    // flag
-    socket_type = SocketTypeUndefined;
-    PRINT_DEBUG("Connection: closed");
+    // success
+    return true;
 }
 
 bool DowowNetwork::Connection::PopSendQueue() {
-    MTLock(__sqm, mutex_send_queue);
-
     // check if no data in queue
     if (!send_queue.size())
         return false;
@@ -311,12 +344,9 @@ bool DowowNetwork::Connection::PopSendQueue() {
     send_queue.pop();
 
     // serializing
-    {
-        MTLock(__sm, mutex_send);
-        send_buffer = req->Serialize();
-        send_buffer_length = req->GetSize();
-        send_buffer_offset = 0;
-    }
+    send_buffer = req->Serialize();
+    send_buffer_length = req->GetSize();
+    send_buffer_offset = 0;
 
     // deleting the request
     delete req;
@@ -325,29 +355,8 @@ bool DowowNetwork::Connection::PopSendQueue() {
 }
 
 void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
-    // lock everything
-    MTLock(__sm, mutex_send);
-    MTLock(__rm, mutex_recv);
-    MTLock(__sqm, mutex_send_queue);
-    MTLock(__rqm, mutex_recv_queue);
-    MTLock(__frim, mutex_free_request_id);
-
     // do nothing if already connected
     if (IsConnected()) return;
-
-    // reset keep-alive timers
-    our_next_ka = time(0) + our_ka_interval;
-    their_next_ka = time(0) + their_ka_interval_limit;
-
-    // resetting some data
-    is_disconnecting = false;
-
-    // reset IDs
-    free_request_id = 1;
-    SetEvenRequestIdsPart(false);
-
-    // assign the socket
-    this->socket_fd = socket_fd;
 
     // get the type
     int socket_domain;
@@ -366,14 +375,39 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
         case AF_INET: socket_type = SocketTypeTcp; break;
         // the type is not supported
         default:
-            Close();
-            break;
+            return;
     }
+
+    // initialize the events
+    push_event = eventfd(0, 0);
+    to_stop_event = eventfd(0, 0);
+
+    // create the timers for keep-alive mechanism
+    our_sa_timer = timerfd_create(CLOCK_MONOTONIC, 0);
+    their_na_timer = timerfd_create(CLOCK_MONOTONIC, 0);
+
+    // start the timers
+    Utils::SetTimerFdTimeout(our_sa_timer, our_sa_interval);
+    Utils::SetTimerFdTimeout(their_na_timer, their_na_interval);
+
+    // not disconnecting
+    is_disconnecting = false;
+
+    // reset IDs
+    free_request_id = 1;
+    SetEvenRequestIdsPart(false);
+
+    // assign the socket
+    this->socket_fd = socket_fd;
+
+    // start the polling thread
+    std::thread polling_thread(ConnThreadFunc, this);
+    polling_thread.detach();
 }
 
 void DowowNetwork::Connection::SetEvenRequestIdsPart(bool state) {
     // lock
-    MTLock(__frim, mutex_free_request_id);
+    MTLock(__mm, mutex_main);
     
     // set the state
     is_even_request_parts = state;
@@ -386,73 +420,15 @@ void DowowNetwork::Connection::SetEvenRequestIdsPart(bool state) {
     }
 }
 
-void DowowNetwork::Connection::SubPoll() {
-    
-}
-
 DowowNetwork::Connection::Connection(int socket_fd) : Connection() {
     InitializeByFD(socket_fd);
     SetEvenRequestIdsPart(true);
 }
 
-void DowowNetwork::Connection::SetNonblocking(bool nonblocking) {
-    // update
-    this->nonblocking = nonblocking;
-}
+DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_copy, int timeout, bool change_request_id) {
+    // lock the
+    MTLock(__mm, mutex_main);
 
-bool DowowNetwork::Connection::IsNonblocking() {
-    return nonblocking;
-}
-
-void DowowNetwork::Connection::Poll() {
-    // subpoll
-    SubPoll();
-
-    // closed
-    if (!IsConnected()) return;
-
-    // the connection is blocking - do nothing here
-    if (!nonblocking) return;
-
-    // receive nonblocking
-    Receive(nonblocking);
-    
-    // send nonblocking
-    if (IsConnected())
-        Send(nonblocking);
-
-    // keep-alive
-    if (use_keep_alive && IsConnected()) {
-        // time for our keep-alive
-        if (time(0) >= our_next_ka) {
-            // create the keep-alive request
-            Request *keep_alive_req = new Request("keep_alive");
-            // reserved ID
-            keep_alive_req->SetId(0);
-            // send
-            Push(keep_alive_req, false, false);
-            // increase our net keep-alive
-            our_next_ka = time(0) + our_ka_interval;
-        }
-        // they are dead :-(
-        if (time(0) >= their_next_ka) {
-            Close();
-        }
-    }
-
-    // disconnecting
-    if (is_disconnecting && IsConnected()) {
-        MTLock(__sqm, mutex_send_queue);
-        if (send_queue.size() == 0 &&
-            send_buffer_offset == send_buffer_length)
-        {
-            // close the connection, as all data is sent
-            Close();
-        }
-    }
-}
-
-uint32_t DowowNetwork::Connection::Push(Request* req, bool must_copy, bool change_request_id) {
     // not connected or disconnecting
     if (!IsConnected() || IsDisconnecting()) {
         // delete the data if it is not copied
@@ -472,8 +448,6 @@ uint32_t DowowNetwork::Connection::Push(Request* req, bool must_copy, bool chang
     uint32_t req_id = req->GetId();
     // must change the request id
     if (change_request_id) {
-        // acquire lock
-        MTLock(__frim, mutex_free_request_id);
         // store the request id
         req_id = free_request_id;
         // set the id
@@ -482,115 +456,71 @@ uint32_t DowowNetwork::Connection::Push(Request* req, bool must_copy, bool chang
         free_request_id += 2;
     }
 
-    // push to the queue
-    {
-        MTLock(__sqm, mutex_send_queue);
-        send_queue.push(req);
-    }
+    // push to queue
+    send_queue.push(req);
 
-    // if the connection is set to be blocking, then send immidiately
-    if (!nonblocking) {
-        PRINT_DEBUG("Connection: using blocking Send() operation");
-        Send(nonblocking);
-    }
+    // notify the thread
+    Utils::WriteToEventFd(push_event, 1);
 
-    return req_id;
+    return 0;
 }
 
-uint32_t DowowNetwork::Connection::Push(Request& req, bool change_request_id) {
+DowowNetwork::Request* DowowNetwork::Connection::Push(Request& req, int timeout, bool change_request_id) {
     // reuse code
-    return Push(&req, true, change_request_id);
+    return Push(&req, true, timeout, change_request_id);
 }
 
-DowowNetwork::Request* DowowNetwork::Connection::Pull() {
+DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
     // not checking if connected, because the pulling
     // may be needed after the disconnection
 
-    // blocking mode, so we should do I/O here.
-    // if not connected, then do not try to receive.
-    if (!nonblocking && IsConnected())
-        Receive(nonblocking);
-
-    // no requests in queue
-    MTLock(__rqm, mutex_recv_queue);
-    if (recv_queue.size() == 0)
-        return 0;
-
-    // get the request
-    Request* req = recv_queue.front();
-    recv_queue.pop();
-    return req;
-}
-
-DowowNetwork::Request* DowowNetwork::Connection::Execute(Request *req, bool must_copy, time_t timeout) {
-    // not connected
-    if (!IsConnected()) return 0;
-
-    // request id
-    uint32_t req_id = 0;
-
-    // nonblocking
-    if (IsNonblocking()) {
-        {
-            // lock the recv_queue
-            MTLock(__rqm, mutex_recv_queue);
-            // push
-            req_id = Push(req, must_copy);
-            // add to subscription
-            subscription_map[req_id] = 0;
-        }
-        // time limit
-        time_t time_limit = time(0) + timeout;
-
-        // wait
-        while (time(0) < time_limit) {
-            {
-                MTLock(__smm, mutex_subscription_map);
-                if (subscription_map[req_id]) {
-                    // response received
-                    Request* res = subscription_map[req_id];
-                    subscription_map.erase(req_id);
-                    // return
-                    return res;
-                }
-            }
-            // sleep a bit
-
-        }
-
-        // unsubscribe
-        MTLock(__smm, mutex_subscription_map);
-        subscription_map.erase(req_id);
-
-        // no response
-        return 0;
-    } else {
-        
+    // check if there is data
+    MTLock(__mm, mutex_main);
+    if (recv_queue.size()) {
+        Request *req = recv_queue.front();
+        recv_queue.pop();
+        return req;
     }
+    return 0;
 }
 
-DowowNetwork::Request* DowowNetwork::Connection::Execute(Request &req, time_t timeout) {
-    return Execute(&req, true, timeout);
-}
+void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {
+    // lock
+    mutex_main.lock();
 
-void DowowNetwork::Connection::Disconnect(bool forced) {
-    // check if not connected
-    if (!IsConnected()) return;
+    // check if not connected or disconnecting
+    if (!IsConnected() || IsDisconnecting()) {
+        mutex_main.unlock();
+        return;
+    }
+
+    int efd = GetStoppedEvent();
+
+    if (wait_for_join && stopped_event == -1)
+        stopped_event = eventfd(0, 0);
 
     // check if requesting graceful disconnection
     if (!forced) {
         // already disconnecting
-        if (IsDisconnecting()) return;
+        if (IsDisconnecting()) {
+            mutex_main.unlock();
+            return;
+        }
 
         // mark for disconnection
         is_disconnecting = true;
-
-        // quit
-        return;
+    } else {
+        Utils::WriteToEventFd(to_stop_event, 1);
     }
 
-    // close the connection
-    Close();
+    mutex_main.unlock();
+    // must wait for join
+    if (wait_for_join) {
+        pollfd pollfds = { efd, POLLIN, 0 };
+        poll(&pollfds, 1, -1);
+        uint64_t v_val;
+        read(efd, &v_val, sizeof(v_val));
+    }
 }
 
 bool DowowNetwork::Connection::IsConnected() {
@@ -607,18 +537,25 @@ uint8_t DowowNetwork::Connection::GetType() {
     return socket_type;
 }
 
+int DowowNetwork::Connection::GetStoppedEvent() {
+    MTLock(__etm, mutex_main);
+    if (stopped_event == -1)
+        stopped_event = eventfd(0, 0);
+    return stopped_event;
+}
+
 void DowowNetwork::Connection::SetHandlerDefault(RequestHandler h) {
-    MTLock(__hm, mutex_handlers);
+    MTLock(__hm, mutex_main);
     handler_default = h;
 }
 
 DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerDefault() {
-    MTLock(__hm, mutex_handlers);
+    MTLock(__hm, mutex_main);
     return handler_default;
 }
 
 void DowowNetwork::Connection::SetHandlerNamed(std::string name, RequestHandler h) {
-    MTLock(__hm, mutex_handlers);
+    MTLock(__mm, mutex_main);
 
     // must delete and is set
     if (h == 0) {
@@ -634,7 +571,7 @@ void DowowNetwork::Connection::SetHandlerNamed(std::string name, RequestHandler 
 }
 
 DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerNamed(std::string name) {
-    MTLock(__hm, mutex_handlers);
+    MTLock(__mm, mutex_main);
 
     auto it = handlers_named.find(name);
     // is not set
@@ -645,26 +582,36 @@ DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerNamed(std::stri
 }
 
 void DowowNetwork::Connection::SetSendBlockSize(uint32_t bs) {
+    MTLock(__mm, mutex_main);
+
     // not less than 1
     if (bs < 1) bs = 1;
     send_block_size = bs;
 }
 
 uint32_t DowowNetwork::Connection::GetSendBlockSize() {
+    MTLock(__mm, mutex_main);
+
     return send_block_size;
 }
 
 void DowowNetwork::Connection::SetRecvBlockSize(uint32_t bs) {
+    MTLock(__mm, mutex_main);
+
     // not less than 1
     if (bs < 1) bs = 1;
     recv_block_size = bs;
 }
 
 uint32_t DowowNetwork::Connection::GetRecvBlockSize() {
+    MTLock(__mm, mutex_main);
+
     return recv_block_size;
 }
 
 void DowowNetwork::Connection::SetMaxRequestSize(uint32_t size) {
+    MTLock(__mm, mutex_main);
+
     // not less than 10 (request header + 1 symbol of request name)
     if (size < 10) size = 10;
 
@@ -672,13 +619,13 @@ void DowowNetwork::Connection::SetMaxRequestSize(uint32_t size) {
 }
 
 uint32_t DowowNetwork::Connection::GetMaxRequestSize() {
+    MTLock(__mm, mutex_main);
+
     return recv_buffer_max_length;
 }
 
 DowowNetwork::Connection::~Connection() {
-    // BEWARE: Session data must be deleted in outer code,
-    // as the type can not be stored.
+    Disconnect(true, true);
 
-    // force disconnection
-    Close();
+    close(stopped_event);
 }

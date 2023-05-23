@@ -1,0 +1,13 @@
+The codebase is doomed, so it must be reworked completely. The implementation must be defined exactly. So there it is.
+Connection:
+    1. has a thread called "polling thread", that handles all I/O operations.
+    2. poll() is used in the polling thread to monitor events
+    3. all descriptors are closed in the thread the were open from (as the select() manpage tells us to to)
+    4. there are eventfds and timerfds used aside from connection socket:
+        -   eventfd for nonpolling thread disconnection. Becomes readable when nonpolling thread asks for disconnection. When it becomes readable,
+            the polling thread stops.
+        -   eventfd for polling thread finishing. Becomes readable when the polling thread is finished.
+        -   eventfd for Push() notification. Becomes readable when the send queue is not empty.
+        -   timerfd for our still-alive timer. Expires when we haven't sent data within specified amount of time.
+        -   timerfd for their not-alive timer. Expires when they haven't sent anything within specified amount of time.
+            

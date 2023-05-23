@@ -10,6 +10,8 @@
 #include "Connection.hpp"
 #include "SocketType.hpp"
 
+#include <mutex>
+
 namespace DowowNetwork {
     /// Client
     /*!
@@ -20,8 +22,13 @@ namespace DowowNetwork {
     private:
         // file descriptor for a socket trying to connect to the server
         int temp_socket_fd = -1;
+
+        // connecting thread event
+        int connect_event = -1;
+
+        static void TcpThreadFunc(Client *client, std::string ip, uint16_t port, int timeout = 30);
+        static void UnixThreadFunc(Client *client, std::string unix_path, int timeout = 30);
     protected:
-        void SubPoll() final;
     public:
         /// Create a new client.
         /*!
@@ -30,7 +37,7 @@ namespace DowowNetwork {
             \param nonblocking must be nonblocking?
             \sa ConnectTcp(), ConnectUnix().
         */
-        Client(bool nonblocking = false);
+        Client();
 
         /// Connect to a TCP server.
         /*!
@@ -50,7 +57,7 @@ namespace DowowNetwork {
 
             \sa IsConnected(), IsConnecting().
         */
-        bool ConnectTcp(std::string ip, uint16_t port);
+        void ConnectTcp(std::string ip, uint16_t port, int timeout = 30);
         /// Connect to a UNIX server.
         /*!
             Behavior differs:
@@ -68,7 +75,7 @@ namespace DowowNetwork {
 
             \sa IsConnected(), IsConnecting().
         */
-        bool ConnectUnix(std::string socket_path);
+        void ConnectUnix(std::string socket_path, int timeout = 30);
 
         /// Check if connecting right now.
         /*!

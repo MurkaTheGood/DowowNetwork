@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.10)
 project(DowowNetwork)
 
 # add some options for build configurations
-option(SUPPORT_MULTITHREADING "Enables some minor tweaks in code, so that it will be working well in multithreaded applications" ON)
 option(BUILD_EXAMPLES "Build examples?")
 option(BUILD_TESTS "Build tests?" OFF)
 option(DEBUG "Include debug symbols?" OFF)
@@ -39,9 +38,7 @@ set(CMAKE_CXX_STANDART 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
 # support multithreading
-if(SUPPORT_MULTITHREADING)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMULTITHREADING_TWEAKS")
-endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 if(!DEBUG)
     # not debug, enable optimizations

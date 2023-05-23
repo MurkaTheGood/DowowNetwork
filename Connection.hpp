@@ -19,10 +19,10 @@
 #include <ctime>
 #endif
 
-#ifdef MULTITHREADING_TWEAKS
 #include <mutex>
-#endif
+#include <thread>
 
+#include "Utils.hpp"
 #include "SocketType.hpp"
 #include "Request.hpp"
 
@@ -39,7 +39,7 @@ namespace DowowNetwork {
         \return
             The function must return true if the Request is processed.
     */
-    typedef bool (*RequestHandler)(Connection* conn, Request* req, uint32_t id);
+    typedef void (*RequestHandler)(Connection* conn, Request* req);
 
     /// A connection between two endpoints.
     class Connection {
@@ -47,50 +47,13 @@ namespace DowowNetwork {
         // Zero time for pselect()
         const timespec zero_time { 0, 0 };
 
-        #ifdef MULTITHREADING_TWEAKS
-        // mutex for send()
-        std::recursive_mutex mutex_send;
-        // mutex for recv()
-        std::recursive_mutex mutex_recv;
-        // mutex for send_queue
-        std::recursive_mutex mutex_send_queue;
-        // mutex for recv_queue
-        std::recursive_mutex mutex_recv_queue;
-        // mutex for free_request_id
-        std::recursive_mutex mutex_free_request_id;
-        // mutex for handlers logic
-        std::recursive_mutex mutex_handlers;
-        // mutex for subscription map
-        std::recursive_mutex mutex_subscription_map;
-        #else
-        // these are used as placeholder
-        const int mutex_send = 0;
-        const int mutex_recv = 0;
-        const int mutex_send_queue = 0;
-        const int mutex_recv_queue = 0;
-        const int mutex_free_request_id = 0;
-        const int mutex_handlers = 0;
-        const int mutex_subscription_map = 0;
-        #endif
+        // main mutex
+        std::recursive_mutex mutex_main;
 
         /// The ID of the free request.
         uint32_t free_request_id = 1;
         /// Should this connection occupy even request IDs or odd ones?
         bool is_even_request_parts = false;
-
-        /// The next time we should send keep_alive request.
-        time_t our_next_ka = 0;
-        /// If they do not send us anything by that time, the connection
-        /// will be closed.
-        time_t their_next_ka = 0;
-
-        /// Our keep_alive interval
-        time_t our_ka_interval = 10;
-        /// The amount of time they are considered disconnected after.
-        time_t their_ka_interval_limit = 60;
-
-        /// Use built-in keep_alive mechanism?
-        bool use_keep_alive = true;
 
         /// Is graceful disconnection in progress?
         bool is_disconnecting = false;
@@ -132,20 +95,39 @@ namespace DowowNetwork {
         /// Is receiving the request length right now?
         bool is_recv_length = true;
 
-        /// Using nonblocking I/O?
-        bool nonblocking = false;
-
         /// Session data.
         void* session_data = 0;
-
-        /// The map used in Execute() function to track
-        /// new requests.
-        std::map<uint32_t, Request*> subscription_map;
 
         /// The pointer to the default request handler.
         RequestHandler handler_default = 0;
         /// The map of the pointers to the named request handlers.
         std::map<std::string, RequestHandler> handlers_named;
+
+        /// Push() event
+        int push_event = -1;
+        /// 'to_stop' event
+        int to_stop_event = -1;
+        /// 'stopped' event
+        int stopped_event = -1;
+        /// our still-alive timer
+        int our_sa_timer = -1;
+        /// their not-alive timer
+        int their_na_timer = -1;
+
+        /// Our keep_alive interval
+        time_t our_sa_interval = 10;
+        /// The amount of time they are considered disconnected after.
+        time_t their_na_interval = 60;
+
+        /// Polling thread function
+        static void ConnThreadFunc(Connection* conn);
+
+        /// Check if has something to send.
+        inline bool HasSomethingToSend() {
+            return
+                send_queue.size() ||
+                send_buffer_length != send_buffer_offset;
+        }
 
         /// Pass the Requests through assigned handlers.
         /*!
@@ -157,7 +139,7 @@ namespace DowowNetwork {
     protected:
         /// This constructor does nothing.
         /*!
-            It declared protected so that the derived classes could
+            It is declared protected so that the derived classes could
             define their own initialization process.
         */
         Connection();
@@ -169,25 +151,23 @@ namespace DowowNetwork {
 
         /// Perform I/O operations related to receival.
         /*!
-            The behavior of this method differs in blocking and
-            nonblocking modes:
-            -   In blocking mode it will receive data until the entire
-                Request is received.
-            -   In nonblocking mode it will receive as much data as possible
-                with one recv() call. Returns immidiately.
+            This method will receive as much data as possible
+            with one recv() call. The call is blocking, so perform
+            checks for availability beforehand.
 
             If the Request is received:
             1.  An attempt to deserialize it will be done. On failure the
-                Request is just dropped. On success it will be passed to the
+                Request is just deleted. On success it will be passed to the
                 next step.
-            2.  The Request will be passed through all the set handlers using
-                PassThroughHandlers() method. If it returns true then
-                the Request is deleted. If it returns false then the Request
-                is added to the receive queue.
-            
-            \param nonblocking should perform nonblocking I/O?
+            2.  The Request will be passed through all the set handlers. If
+                no handler reports successful handling, then the Request will
+                be added to the receive queue.
+
+            \return
+                true if no connection errors occured.
+                false if connection is lost.
         */
-        void Receive(bool nonblocking);
+        bool Receive();
 
         /// Perform I/O operations related to sending.
         /*!
@@ -198,19 +178,14 @@ namespace DowowNetwork {
             3.  If the queue is empty then the method returns
                 immidiately.
 
-            The behavior of this method differs in blocking and
-            nonblocking modes:
-            -   In blocking mode it will send data until the entire
-                Request is sent.
-            -   In nonblocking mode it will send as much data as possible
-                with one send() call. Returns immidiately.
+            In nonblocking mode it will send as much data as possible
+            with one send() call. The call is blocking.
 
-            \param nonblocking should perform nonblocking I/O?
+            \return
+                true if no connection errors occured.
+                false if connection is lost.
         */
-        void Send(bool nonblocking);
-
-        /// Close the connection.
-        void Close();
+        bool Send();
 
         /// Pop one element from the send queue.
         /*!
@@ -245,9 +220,6 @@ namespace DowowNetwork {
             \param state should we occupy the even part?
         */
         void SetEvenRequestIdsPart(bool state);
-
-        /// This method is called every Poll() call.
-        virtual void SubPoll();
     public:
         /// The connection tag.
         /// Can be used for any purposes.
@@ -257,26 +229,54 @@ namespace DowowNetwork {
         //! Effectively just calls InitializeByFD().
         Connection(int socket_fd);
 
-        /// Set the connection to be blocking or nonblocking.
+        /// Set our (local) keep-alive interval.
         /*!
-            \param nonblocking should use nonblocking I/O?
+            That is the interval the keep-alive requests are sent to
+            the remote endpoint. The timer is reset after calling this
+            function. If interval is less than 1 then it will be set to 1.
+
+            \param interval the interval in seconds.
         */
-        void SetNonblocking(bool nonblocking);
-        /// Is using nonblocking I/O?
+        inline void SetOurSaInterval(time_t interval) {
+            our_sa_interval = interval < 1 ? 1 : interval;
+            Utils::SetTimerFdTimeout(our_sa_timer, our_sa_interval);
+        }
+        /// Get our (local) keep-alive interval.
         /*!
+            That is the interval the keep-alive requests are sent to
+            the remote endpoint.
+
             \return
-                true if nonblocking I/O is the active mode.
+                    Our (local) keep-alive interval.
         */
-        bool IsNonblocking();
+        inline time_t GetOurSaInterval() {
+            return our_sa_interval;
+        }
 
-        /// Handle the nonblocking I/O.
+        /// Set their (remote) keep-alive interval limit.
         /*!
-            Effectively calls Send() and Receive(), maintains built-in
-            keep_alive mechanism.
+            The connection will be closed if we don't receive anything
+            from the remote endpoint within this amount of time. The
+            timer is reset after calling this function. If interval is
+            less than 1 then it will be set to 1.
 
-            \warning Must be called only if nonblocking mode is active!
+            \param interval the interval in seconds.
         */
-        void Poll();
+        inline void SetTheirKaIntervalLimit(time_t interval) {
+            their_na_interval = interval < 1 ? 1 : interval;
+            Utils::SetTimerFdTimeout(their_na_timer, their_na_interval);
+        }
+        /// Get their (remote) keep-alive interval limit.
+        /*!
+            The connection will be closed if we don't receive anything
+            from the remote endpoint within this amount of time.
+
+            \return
+                    Their (remote) keep-alive interval limit.
+        */
+        inline time_t GetTheirKaIntervalLimit() {
+            return their_na_interval;
+        }
 
         /// Push the Request to the remote endpoint.
         /*!
@@ -303,7 +303,7 @@ namespace DowowNetwork {
                     - On success: the ID of the sent request.
                     - On failure: 0.
         */
-        uint32_t Push(Request* request, bool to_copy = true, bool change_request_id = true);
+        Request* Push(Request* request, bool to_copy = true, int timeout = 0, bool change_request_id = true);
         /// Push the Request to the remote endpoint.
         /*!
             Effectively calls Push(Request*, bool, bool) but automatically
@@ -314,53 +314,30 @@ namespace DowowNetwork {
 
             \sa Push(Request*, bool, bool)
         */
-        uint32_t Push(Request& req, bool change_request_id = true);
-
-        /// Push the Request to the remote endpoint and wait for response.
-        /*!
-            Behavior differs in blocking and nonblocking modes:
-            1.  In blocking mode: will Push() the Request and return only
-                when the response is received (or a problem occured)
-            2.  In nonblocking mode: will Push() the Request, subscribe for
-                its ID and wait for response. Poll()ing must be done in a
-                separate thread.
-
-            \param request the request to execute
-            \param must_copy must the request get copied or stolen?
-            \param timeout the max time to wait for response.
-
-            \return
-                - On success: the response (you must delete it by yourself
-                    with delete operator)
-                - On failure or timeout: null pointer.
-
-            \warning
-                    If the Connection is nonblocking then the polling
-                    must be done in a separate thread.
-
-            \sa Push(), Poll().
-        */
-        Request* Execute(Request *request, bool must_copy = true, time_t timeout = 30);
-        /// Push the Request to the remote endpoint and wait for response.
-        /*!
-            \sa Execute(Request*, bool, time_t)
-        */
-        Request* Execute(Request &request, time_t timeout = 30);
+        Request* Push(Request& req, int timeout = 0, bool change_request_id = true);
 
         /// Pull the Request from the receive queue.
         /*!
+            Behavior:
+            1.  timeout > 0: wait for data for specified amount of time
+            2.  timeout == 0: if there's no data - return immidiately
+            3.  timeout < 0: wait for data forever
+
+            \param
+                timeout the amount of time to wait
+
             \return
-                - If the receive queue is empty then null pointer.
-                - If the receive queue is not empty then the first
-                    Request from it.
+                - no data: null-pointer
+                - error: null-pointer
+                - success: a valid pointer to the Request
 
             \warning
                 You must delete the returned pointer by yourself with
                 delete operator.
 
-            \sa Push(), Execute()
+            \sa Push()
         */
-        Request* Pull();
+        Request* Pull(int timeout = 0);
 
         /// Disconnect.
         /*!
@@ -372,7 +349,7 @@ namespace DowowNetwork {
 
             \param forced must the forced disconnection be performed?
         */
-        void Disconnect(bool forced = false);
+        void Disconnect(bool forced = false, bool wait_for_join = false);
         /// Check if connected.
         /*!
             \return
@@ -401,6 +378,18 @@ namespace DowowNetwork {
             \sa SocketType.hpp.
         */
         uint8_t GetType();
+
+        /// Get the eventfd for disconnection check.
+        /*!
+            The returned file descriptor will become readble once
+            the connection is closed.
+
+            \warning
+                You have to close the descriptor by yourself after
+                poll()in it, select()ing it or doing any other multiplexing.
+        */
+        int GetStoppedEvent();
+
 
         /// Set the default handler.
         /*!

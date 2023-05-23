@@ -32,7 +32,7 @@ void HandlerPong(Connection *c, Request *r) {
     
     Request ping("ping");
     ping.Emplace<Value32S>("number", number);
-    c->Push(ping);
+    // c->Push(ping);
 
     delete r;
     return;
@@ -40,7 +40,7 @@ void HandlerPong(Connection *c, Request *r) {
 
 void HandlerBye(Connection *c, Request *r) {
     delete r;
-    c->Disconnect(true);
+    // c->Disconnect(true);
 }
 
 int main(int argc, char** argv) {
@@ -60,7 +60,15 @@ int main(int argc, char** argv) {
 
     cout << "Connected" << endl;
 
-    while (client.IsConnected());
+    int i = 0;
+    while (client.IsConnected()) {
+        Request req("ping");
+        req.Emplace<Value32S>("number", i++);
+        client.Push(req);
+
+        cout << i << endl;
+        sleep(1);
+    }
 
     cout << "Closed" << endl;
 

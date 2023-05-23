@@ -61,7 +61,8 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // 'to_stop' event
         // ***************
         if (pollfds[0].revents & POLLIN) {
-            cout << "'to_stop' event" << endl;
+            uint64_t void_val;
+            read(pollfds[0].fd, &void_val, sizeof(void_val));
             break;
         }
 
@@ -69,17 +70,13 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // socket events
         // *************
         if (pollfds[1].revents & POLLIN) {
-            cout << "receive event" << endl;
             if (!c->Receive()) {
-                cout << "receive event fail" << endl;
                 // error
                 break;
             }
         }
         if (pollfds[1].revents & POLLOUT) {
-            cout << "send event" << endl;
             if (!c->Send()) {
-                cout << "send event fail" << endl;
                 // error
                 break;
             }
@@ -88,7 +85,6 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // our still-alive event
         // *********************
         if (pollfds[2].revents & POLLIN) {
-            cout << "still-alive timer" << endl;
             Request *keep_alive = new Request("_");
             c->Push(keep_alive);
 
@@ -105,9 +101,15 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // their not-alive event
         // *********************
         if (pollfds[3].revents & POLLIN) {
-            cout << "timed out timer" << endl;
             // close, they're timed out.
             break;
+        }
+        // **********
+        // push event
+        // **********
+        if (pollfds[4].revents & POLLIN) {
+            uint64_t void_val;
+            read(pollfds[4].fd, &void_val, sizeof(void_val));
         }
         c->mutex_main.unlock();
     }

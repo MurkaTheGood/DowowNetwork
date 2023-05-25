@@ -28,11 +28,11 @@ void HandlerPong(Connection *c, Request *r) {
         return;
     }
     int32_t number = number_v->Get();
-    cout << number << endl;
+    cout << "Received 'pong': " << number << endl;
     
     Request ping("ping");
     ping.Emplace<Value32S>("number", number);
-    // c->Push(ping);
+    c->Push(ping);
 
     delete r;
     return;
@@ -40,7 +40,7 @@ void HandlerPong(Connection *c, Request *r) {
 
 void HandlerBye(Connection *c, Request *r) {
     delete r;
-    // c->Disconnect(true);
+    c->Disconnect(true);
 }
 
 int main(int argc, char** argv) {

@@ -27,6 +27,12 @@ using namespace std;
 
 #define MTLock(name, mut) std::lock_guard<typeof(mut)> name(mut);
 
+bool DowowNetwork::Connection::HasSomethingToSend() {
+    return
+        send_queue.size() ||
+        send_buffer_length != send_buffer_offset;
+}
+
 void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     while (true) {
         c->mutex_main.lock();
@@ -121,6 +127,9 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     if (c->stopped_event != -1) {
         Utils::WriteToEventFd(c->stopped_event, 1);
     }
+    if (c->receive_event != -1) {
+        Utils::WriteToEventFd(c->receive_event, 1);
+    }
 
     // close
     shutdown(c->socket_fd, SHUT_RDWR);
@@ -167,6 +176,7 @@ bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
     // couldn't handle using named handler, using default
     if (h) {
         std::thread t(*h, this, r);
+        t.detach();
         return true;
     }
     
@@ -276,6 +286,11 @@ bool DowowNetwork::Connection::Receive() {
                         // try to process using handlers
                         if (!PassThroughHandlers(req)) {
                             recv_queue.push(req);
+
+                            // queue updated, notify outer code
+                            if (receive_event != -1) {
+                                Utils::WriteToEventFd(receive_event, 1);
+                            }
                         }
                     }
                 }
@@ -427,6 +442,24 @@ DowowNetwork::Connection::Connection(int socket_fd) : Connection() {
     SetEvenRequestIdsPart(true);
 }
 
+void DowowNetwork::Connection::SetOurSaInterval(time_t interval) {
+    our_sa_interval = interval < 1 ? 1 : interval;
+    Utils::SetTimerFdTimeout(our_sa_timer, our_sa_interval);
+}
+
+time_t DowowNetwork::Connection::GetOurSaInterval() {
+    return our_sa_interval;
+}
+
+void DowowNetwork::Connection::SetTheirNaIntervalLimit(time_t interval) {
+    their_na_interval = interval < 1 ? 1 : interval;
+    Utils::SetTimerFdTimeout(their_na_timer, their_na_interval);
+}
+
+time_t DowowNetwork::Connection::GetTheirNaIntervalLimit() {
+    return their_na_interval;
+}
+
 DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_copy, int timeout, bool change_request_id) {
     // lock the
     MTLock(__mm, mutex_main);
@@ -476,14 +509,58 @@ DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
     // not checking if connected, because the pulling
     // may be needed after the disconnection
 
-    // check if there is data
-    MTLock(__mm, mutex_main);
+    // lock
+    mutex_main.lock();
+
+    // check if has elements
     if (recv_queue.size()) {
+        // pop
         Request *req = recv_queue.front();
         recv_queue.pop();
+
+        // unlock
+        mutex_main.unlock();
         return req;
     }
-    return 0;
+
+    // no timeout
+    if (!timeout) {
+        mutex_main.unlock();
+        return 0;
+    }
+
+    // someone is already waiting for Pull, quit
+    if (receive_event != -1) {
+        mutex_main.unlock();
+        return 0;
+    }
+
+    // set up receive event
+    receive_event = eventfd(0, 0);
+
+    // set up pollfds
+    pollfd pollfds { receive_event, POLLIN, 0 };
+
+    // unlock
+    mutex_main.unlock();
+
+    // poll
+    poll(&pollfds, 1, timeout);
+
+    // lock
+    mutex_main.lock();
+
+    // get the result
+    Request *res = Pull(0);
+
+    // close the eventfd
+    close(receive_event);
+    receive_event = -1;
+
+    // unlock
+    mutex_main.unlock();
+
+    return res;
 }
 
 void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {

@@ -113,6 +113,8 @@ namespace DowowNetwork {
         int our_sa_timer = -1;
         /// their not-alive timer
         int their_na_timer = -1;
+        /// receive event
+        int receive_event = -1;
 
         /// Our keep_alive interval
         time_t our_sa_interval = 10;
@@ -123,11 +125,7 @@ namespace DowowNetwork {
         static void ConnThreadFunc(Connection* conn);
 
         /// Check if has something to send.
-        inline bool HasSomethingToSend() {
-            return
-                send_queue.size() ||
-                send_buffer_length != send_buffer_offset;
-        }
+        bool HasSomethingToSend();
 
         /// Pass the Requests through assigned handlers.
         /*!
@@ -229,286 +227,41 @@ namespace DowowNetwork {
         //! Effectively just calls InitializeByFD().
         Connection(int socket_fd);
 
-        /// Set our (local) keep-alive interval.
-        /*!
-            That is the interval the keep-alive requests are sent to
-            the remote endpoint. The timer is reset after calling this
-            function. If interval is less than 1 then it will be set to 1.
+        void SetOurSaInterval(time_t interval);
+        time_t GetOurSaInterval();
 
-            \param interval the interval in seconds.
-        */
-        inline void SetOurSaInterval(time_t interval) {
-            our_sa_interval = interval < 1 ? 1 : interval;
-            Utils::SetTimerFdTimeout(our_sa_timer, our_sa_interval);
-        }
-        /// Get our (local) keep-alive interval.
-        /*!
-            That is the interval the keep-alive requests are sent to
-            the remote endpoint.
+        void SetTheirNaIntervalLimit(time_t interval);
+        time_t GetTheirNaIntervalLimit();
 
-            \return
-                    Our (local) keep-alive interval.
-        */
-        inline time_t GetOurSaInterval() {
-            return our_sa_interval;
-        }
-
-        /// Set their (remote) keep-alive interval limit.
-        /*!
-            The connection will be closed if we don't receive anything
-            from the remote endpoint within this amount of time. The
-            timer is reset after calling this function. If interval is
-            less than 1 then it will be set to 1.
-
-            \param interval the interval in seconds.
-        */
-        inline void SetTheirKaIntervalLimit(time_t interval) {
-            their_na_interval = interval < 1 ? 1 : interval;
-            Utils::SetTimerFdTimeout(their_na_timer, their_na_interval);
-        }
-        /// Get their (remote) keep-alive interval limit.
-        /*!
-            The connection will be closed if we don't receive anything
-            from the remote endpoint within this amount of time.
-
-            \return
-                    Their (remote) keep-alive interval limit.
-        */
-        inline time_t GetTheirKaIntervalLimit() {
-            return their_na_interval;
-        }
-
-        /// Push the Request to the remote endpoint.
-        /*!
-            Behavior differs:
-                -   In blocking mode: will send the entire Request to the
-                    remote endpoint. Will return once the operation is
-                    completed or failed.
-                -   In nonblocking mode: will push the Request to the queue.
-                    The sending is performed in Poll() function later.
-
-            \param request the request to send
-            \param to_copy must the request be copied?
-            \param change_request_id must the request ID be changed to a
-                    free one?
-            
-            \warning
-                    If the Request is not copied then you must not access
-                    it after passing it to this method!
-            \warning
-                    change_request_id parameter must be false if you're
-                    trying to send a response to another request!
-
-            \return
-                    - On success: the ID of the sent request.
-                    - On failure: 0.
-        */
         Request* Push(Request* request, bool to_copy = true, int timeout = 0, bool change_request_id = true);
-        /// Push the Request to the remote endpoint.
-        /*!
-            Effectively calls Push(Request*, bool, bool) but automatically
-            copies the request.
-
-            \warning
-                Please check 'See also' section to avoid errors!
-
-            \sa Push(Request*, bool, bool)
-        */
         Request* Push(Request& req, int timeout = 0, bool change_request_id = true);
 
-        /// Pull the Request from the receive queue.
-        /*!
-            Behavior:
-            1.  timeout > 0: wait for data for specified amount of time
-            2.  timeout == 0: if there's no data - return immidiately
-            3.  timeout < 0: wait for data forever
-
-            \param
-                timeout the amount of time to wait
-
-            \return
-                - no data: null-pointer
-                - error: null-pointer
-                - success: a valid pointer to the Request
-
-            \warning
-                You must delete the returned pointer by yourself with
-                delete operator.
-
-            \sa Push()
-        */
         Request* Pull(int timeout = 0);
 
-        /// Disconnect.
-        /*!
-            Performs the disconnection.
-
-            - On forced disconnection: the connection is closed immidiately.
-            - On graceful disconnection: the data from the send queue and send
-                buffer is sent, then the connection is closed.
-
-            \param forced must the forced disconnection be performed?
-        */
         void Disconnect(bool forced = false, bool wait_for_join = false);
-        /// Check if connected.
-        /*!
-            \return
-                true if connected.
-        */
         bool IsConnected();
-        /// Check if disconnection is in progress.
-        /*!
-            \return
-                true if Disconnect() was called and the connection
-                will be closed soon.
-            
-            \warning
-                No new requests must be pushed while disconnecting!
-        */
         bool IsDisconnecting();
 
-        /// Get the socket type.
-        /*!
-            \return
-                The type of the socket, as defined in SocketType enum.
-
-            \warning
-                If not connected then SocketTypeUndefined is returned.
-
-            \sa SocketType.hpp.
-        */
         uint8_t GetType();
 
-        /// Get the eventfd for disconnection check.
-        /*!
-            The returned file descriptor will become readble once
-            the connection is closed.
-
-            \warning
-                You have to close the descriptor by yourself after
-                poll()in it, select()ing it or doing any other multiplexing.
-        */
         int GetStoppedEvent();
 
 
-        /// Set the default handler.
-        /*!
-            This handler will be called if conditions are satisfied:
-            - no named handlers were called,
-            - the request is not pushed via Execute() method.
-
-            \param h the handler to set
-        */
         void SetHandlerDefault(RequestHandler h);
-        /// Get the default handler.
-        /*!
-            \return The default handler. Null pointer if not set.
-        */
         RequestHandler GetHandlerDefault();
 
-        /// Set the named handler.
-        /*!
-            Set null pointer to remove the handler.
-
-            \param name the name of the handler
-            \param h the handler to set
-        */
         void SetHandlerNamed(std::string name, RequestHandler h);
-        /// Get the named handler.
-        /*!
-            \param name the name of the handler
-
-            \return
-                - If the handler is set: the handler
-                - If no handler is set: null pointer
-        */
         RequestHandler GetHandlerNamed(std::string name);
 
-        /// Set the size of the send block.
-        /*!
-            \param bs the new size of the send block (maximum
-                    amount of bytes that can be sent per
-                    one send() call)
-
-            \warning
-                    Setting this parameter to low value
-                    will decrease the transfer speed.
-
-            \sa GetSendBlockSize().
-        */
         void SetSendBlockSize(uint32_t bs);
-        /// Get the size of the send block
-        /*!
-            \return
-                The size of the send block.
-
-            \sa SetSendBlockSize().
-        */
         uint32_t GetSendBlockSize();
 
-        /// Set the size of the receive block.
-        /*!
-            \param bs the new size of the receive block (maximum
-                    amount of bytes that can be received per
-                    one recv() call)
-
-            \warning
-                    Setting this parameter to low value
-                    will decrease the transfer speed.
-
-            \sa GetRecvBlockSize().
-        */
         void SetRecvBlockSize(uint32_t bs);
-        /// Get the size of the receive block
-        /*!
-            \return
-                The size of the receive block.
-
-            \sa SetRecvBlockSize().
-        */
         uint32_t GetRecvBlockSize();
 
-        /// Set the maximum size of Request to receive.
-        /*!
-            If the request that is to be received has size
-            more than this value then the Connection will be
-            forcefully closed.
-
-            \param size the maximum size of Request that
-                    can be received.
-
-            \warning
-                    Beware that the Request that violates this
-                    limit will cause the disconnection! Do not set
-                    too small values!
-
-            \sa GetMaxRequestSize().
-        */
         void SetMaxRequestSize(uint32_t size);
-        /// Get the maximum size of Request to receive.
-        /*!
-            \return
-                    The maximum size of the Request that can
-                    be received.
-
-            \sa SetMaxRequestSize().
-        */
         uint32_t GetMaxRequestSize();
 
-        /// Set the session data.
-        /*!
-            This function stores the pointer to the session
-            data object so that you could access it later without
-            using additional maps. This function does not copy the
-            passed session data object.
-
-            \param data the pointer to the session data to set.
-            \warning
-                    The session data is not copied! The data won't
-                    get deleted in the destructor, you have to delete
-                    it by yourself when it is no longer needed.
-             \sa GetSessionData().
-        */
         template<class T> void SetSessionData(T* data) {
             if (!data) {
                 // data is to be reset
@@ -519,30 +272,12 @@ namespace DowowNetwork {
             }
         }
 
-        /// Get the session data.
-        /*!
-            This function will cash the untyped session data pointer
-            saved in the Connection to the specfied type.
-            If no session data is set then null pointer is returned.
-
-            \return
-                    The pointer to the session data.
-
-            \sa SetSessionData().
-        */
         template<class T> T* GetSessionData() {
             // not set
             if (!session_data) return 0;
             return reinterpret_cast<T*>(session_data);
         }
 
-        /// The connection destructor.
-        /*!
-            \warning
-                    This destructor does not delete the session data!
-
-            \sa SetSessionData().
-        */
         virtual ~Connection();
     };
 }

@@ -245,7 +245,7 @@ namespace DowowNetwork {
         uint8_t GetType();
 
         int GetStoppedEvent();
-
+        bool WaitForStop(int timeout = -1);
 
         void SetHandlerDefault(RequestHandler h);
         RequestHandler GetHandlerDefault();

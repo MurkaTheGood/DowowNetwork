@@ -44,31 +44,35 @@ void HandlerBye(Connection *c, Request *r) {
 }
 
 int main(int argc, char** argv) {
-    // address
-    std::string ip = "127.0.0.1";
-    uint16_t port = 23050;
-
+    // Create a client.
     Client client;
+    // Setup the named handlers.
+    // * They are started in new threads when
+    // * a request with specified name is received.
     client.SetHandlerNamed("pong", HandlerPong);
     client.SetHandlerNamed("bye", HandlerBye);
-    client.ConnectTcp(ip, port, -1);
 
-    if (!client.IsConnected()) {
-        cout << "Failed to connect to " << ip << ":" << port << endl;
+    // Connect to the server with 30 seconds timeout.
+    if (!client.ConnectTcp("127.0.0.1", 23050, 30)) {
+        cout << "Failed to connect to 127.0.0.1:23050" << endl;
         return 1;
     }
 
-    cout << "Connected" << endl;
+    // Log.
+    cout << "Connected to 127.0.0.1:23050" << endl;
 
-    int i = 0;
-    while (client.IsConnected()) {
-        Request req("ping");
-        req.Emplace<Value32S>("number", i++);
-        client.Push(req);
+    // Create an initial request.
+    Request ping("ping");
+    ping.Emplace<Value32S>("number", 0);
 
-        cout << i << endl;
-        sleep(1);
-    }
+    // Push the initial request to the send queue.
+    // * The request becomes scheduled to be sent
+    // * and will eventually get sent by background
+    // * thread.
+    client.Push(ping);
+
+    // Wait for disconnection.
+    client.WaitForStop();
 
     cout << "Closed" << endl;
 

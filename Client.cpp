@@ -90,17 +90,17 @@ DowowNetwork::Client::Client() : Connection() {
 }
 
 
-void DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port, int timeout) {
+bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port, int timeout) {
     // check if connected or connecting
     if (IsConnected() || IsConnecting())
-        return;
+        return false;
 
     // temp socket fd
     temp_socket_fd =
         socket(AF_INET, SOCK_STREAM, 0);
     // failed to create the temp socket
     if (temp_socket_fd == -1)
-        return;
+        return false;
 
     // create an event for connect
     connect_event = eventfd(0, 0);
@@ -111,12 +111,15 @@ void DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port, int timeout
     // wait for thread to exit
     pollfd pollfds { connect_event, POLLIN, 0 };
     poll(&pollfds, 1, timeout);
+
+    // return the result
+    return IsConnected();
 }
 
-void DowowNetwork::Client::ConnectUnix(std::string socket_path, int timeout) {
+bool DowowNetwork::Client::ConnectUnix(std::string socket_path, int timeout) {
     // check if connected or connecting
     if (IsConnected() || IsConnecting())
-        return;
+        return false;
 
     // temp socket fd
     temp_socket_fd =
@@ -124,7 +127,7 @@ void DowowNetwork::Client::ConnectUnix(std::string socket_path, int timeout) {
 
     // failed to create the temp socket
     if (temp_socket_fd == -1)
-        return;
+        return false;
 
     std::thread t(UnixThreadFunc, this, socket_path, timeout);
     t.detach();
@@ -132,6 +135,9 @@ void DowowNetwork::Client::ConnectUnix(std::string socket_path, int timeout) {
     // wait for thread to exit
     pollfd pollfds { connect_event, POLLIN, 0 };
     poll(&pollfds, 1, timeout);
+
+    // return the result
+    return IsConnected();
 }
 
 bool DowowNetwork::Client::IsConnecting() {

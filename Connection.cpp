@@ -623,6 +623,14 @@ int DowowNetwork::Connection::GetStoppedEvent() {
     return stopped_event;
 }
 
+bool DowowNetwork::Connection::WaitForStop(int timeout) {
+    int stop_event = GetStoppedEvent();
+    pollfd pollfds { stop_event, POLLIN, 0 };
+
+    // return true if the connection is closed
+    return poll(&pollfds, 1, timeout) > 0;
+}
+
 void DowowNetwork::Connection::SetHandlerDefault(RequestHandler h) {
     MTLock(__hm, mutex_main);
     handler_default = h;

@@ -40,42 +40,9 @@ namespace DowowNetwork {
         Client();
 
         /// Connect to a TCP server.
-        /*!
-            Behavior differs:
-            -   In blocking mode blocks until gets connected or an error occurs.
-            -   In nonblocking mode will begin connecting to the server and
-                return immidiately.
-
-            \return
-                -   Blocking: true if connected, false if not.
-                -   Nonblocking: true if began to connect, false on error.
-                    If returns true then IsConnected() and IsConnecting()
-                    must be used to check status.
-
-            \param ip the string representation of server IP (something like 127.0.0.1, 192.168.1.1 and so on...)
-            \param port the server port
-
-            \sa IsConnected(), IsConnecting().
-        */
-        void ConnectTcp(std::string ip, uint16_t port, int timeout = 30);
+        bool ConnectTcp(std::string ip, uint16_t port, int timeout = 30);
         /// Connect to a UNIX server.
-        /*!
-            Behavior differs:
-            -   In blocking mode blocks until gets connected or an error occurs.
-            -   In nonblocking mode will begin connecting to the server and
-                return immidiately.
-
-            \return
-                -   Blocking: true if connected, false if not.
-                -   Nonblocking: true if began to connect, false on error.
-                    If returns true then IsConnected() and IsConnecting()
-                    must be used to check status.
-
-            \param socket_path the path to the UNIX socket we're connecting to
-
-            \sa IsConnected(), IsConnecting().
-        */
-        void ConnectUnix(std::string socket_path, int timeout = 30);
+        bool ConnectUnix(std::string socket_path, int timeout = 30);
 
         /// Check if connecting right now.
         /*!

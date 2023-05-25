@@ -1,42 +1,36 @@
 #include "Utils.hpp"
 
 #include <unistd.h>
-#include <sys/select.h>
+#include <sys/poll.h>
 #include <sys/timerfd.h>
 #include <time.h>
 
 // zero timespan
 const timespec zero_time { 0, 0 };
 
-bool DowowNetwork::Utils::SelectWrite(int fd, time_t seconds) {
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
+bool DowowNetwork::Utils::SelectWrite(int fd, int seconds) {
+    pollfd pollfds { fd, POLLOUT, 0 };
+    poll(&pollfds, 1, seconds * 1000);
 
-    // no timeout - immidiate check
-    if (!seconds)
-        return pselect(fd + 1, NULL, &fds, NULL, &zero_time, 0) > 0;
-    else {
-        timespec timeout { 0, seconds };
-        return pselect(fd + 1, NULL, &fds, NULL, &timeout, 0) > 0;
-    }
+    return pollfds.revents & POLLOUT;
 }
 
-bool DowowNetwork::Utils::SelectRead(int fd, time_t seconds) {
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
+bool DowowNetwork::Utils::SelectRead(int fd, int seconds) {
+    pollfd pollfds { fd, POLLIN, 0 };
+    poll(&pollfds, 1, seconds * 1000);
 
-    if (!seconds)
-        return pselect(fd + 1, &fds, NULL, NULL, &zero_time, 0) > 0;
-    else {
-        timespec timeout { 0, seconds };
-        return pselect(fd + 1, &fds, NULL, NULL, &timeout, 0) > 0;
-    }
+    return pollfds.revents & POLLIN;
 }
 
-void DowowNetwork::Utils::WriteToEventFd(int fd, uint64_t num) {
+void DowowNetwork::Utils::WriteEventFd(int fd, uint64_t num) {
     write(fd, &num, sizeof(num));
+}
+
+uint64_t DowowNetwork::Utils::ReadEventFd(int fd, int timeout) {
+    SelectRead(fd, timeout);
+    uint64_t result;
+    read(fd, &result, sizeof(result));
+    return result;
 }
 
 void DowowNetwork::Utils::SetTimerFdTimeout(int fd, time_t seconds) {
@@ -46,3 +40,4 @@ void DowowNetwork::Utils::SetTimerFdTimeout(int fd, time_t seconds) {
     };
     timerfd_settime(fd, 0, &new_timer, 0);
 }
+

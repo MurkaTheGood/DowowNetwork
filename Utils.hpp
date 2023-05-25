@@ -23,7 +23,7 @@ namespace DowowNetwork {
                 true if data can be written to the file descriptor.
                 false on timeout.
         */
-        bool SelectWrite(int fd, time_t seconds = 0);
+        bool SelectWrite(int fd, int seconds = 0);
 
         /// Check if data can be read from the file descriptor.
         /*!
@@ -36,14 +36,17 @@ namespace DowowNetwork {
                 true if data can be read from the file descriptor.
                 false on timeout.
         */
-        bool SelectRead(int fd, time_t seconds = 0);
+        bool SelectRead(int fd, int seconds = 0);
 
         /// Write uint64_t to event file descriptor.
         /*!
             \param fd the file descriptor to write to
             \param num the number to writer to eventfd
         */
-        void WriteToEventFd(int fd, uint64_t num);
+        void WriteEventFd(int fd, uint64_t num);
+
+        /// Read the eventfd
+        uint64_t ReadEventFd(int fd, int timeout);
 
         /// Set the timer expiration time.
         void SetTimerFdTimeout(int fd, time_t seconds);

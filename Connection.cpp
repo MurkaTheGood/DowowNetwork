@@ -28,6 +28,7 @@ using namespace std;
 #define MTLock(name, mut) std::lock_guard<typeof(mut)> name(mut);
 
 bool DowowNetwork::Connection::HasSomethingToSend() {
+    MTLock(__msq, mutex_sq);
     return
         send_queue.size() ||
         send_buffer_length != send_buffer_offset;
@@ -35,7 +36,6 @@ bool DowowNetwork::Connection::HasSomethingToSend() {
 
 void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     while (true) {
-        c->mutex_main.lock();
         // create the fds for poll
         pollfd pollfds[5];
         // add 'to_stop' event
@@ -43,7 +43,10 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         pollfds[0].events = POLLIN;
         // add socket fd
         pollfds[1].fd = c->socket_fd;
-        pollfds[1].events = POLLIN | (c->HasSomethingToSend() ? POLLOUT : 0);
+        pollfds[1].events =
+            POLLIN |
+            (c->HasSomethingToSend() ? POLLOUT : 0) |
+            (c->is_disconnecting ? POLLOUT : 0);
         // our still-alive timer
         pollfds[2].fd = c->our_sa_timer;
         pollfds[2].events = POLLIN;
@@ -53,7 +56,6 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // push event (it's not handled, we just need poll to return)
         pollfds[4].fd = c->push_event;
         pollfds[4].events = POLLIN;
-        c->mutex_main.unlock();
 
         // let's poll!
         poll(
@@ -61,7 +63,9 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
             sizeof(pollfds) / sizeof(pollfds[0]),
             -1);
 
-        c->mutex_main.lock();
+        // nothing to send, and disconnecting
+        if (c->is_disconnecting && !c->HasSomethingToSend())
+            break;
 
         // ***************
         // 'to_stop' event
@@ -117,18 +121,14 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
             uint64_t void_val;
             read(pollfds[4].fd, &void_val, sizeof(void_val));
         }
-        c->mutex_main.unlock();
     }
 
     // mark as disconnecting
     c->is_disconnecting = true;
 
     // notify all events
-    if (c->stopped_event != -1) {
-        Utils::WriteToEventFd(c->stopped_event, 1);
-    }
     if (c->receive_event != -1) {
-        Utils::WriteToEventFd(c->receive_event, 1);
+        Utils::WriteEventFd(c->receive_event, 1);
     }
 
     // close
@@ -154,7 +154,8 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     // mark as undefined
     c->socket_type = SocketTypeUndefined;
 
-    c->mutex_main.unlock();
+    // notify about stop
+    Utils::WriteEventFd(c->stopped_event, 1);
 }
 
 bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
@@ -165,8 +166,12 @@ bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
     auto h = GetHandlerNamed(r->GetName());
     // try to handle
     if (h) {
-        std::thread t(*h, this, r);
-        t.detach();
+        if (mt_handlers) {
+            std::thread t(*h, this, r);
+            t.detach();
+        } else {
+            (*h)(this, r);
+        }
         return true;
     }
 
@@ -175,8 +180,12 @@ bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
 
     // couldn't handle using named handler, using default
     if (h) {
-        std::thread t(*h, this, r);
-        t.detach();
+        if (mt_handlers) {
+            std::thread t(*h, this, r);
+            t.detach();
+        } else {
+            (*h)(this, r);
+        }
         return true;
     }
     
@@ -186,6 +195,9 @@ bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
 DowowNetwork::Connection::Connection() {
     DeleteSendBuffer();
     DeleteRecvBuffer();
+
+    // create a stopped event
+    stopped_event = eventfd(0, 0);
 }
 
 void DowowNetwork::Connection::DeleteSendBuffer() {
@@ -285,11 +297,13 @@ bool DowowNetwork::Connection::Receive() {
                     } else {
                         // try to process using handlers
                         if (!PassThroughHandlers(req)) {
+                            mutex_rq.lock();
                             recv_queue.push(req);
+                            mutex_rq.unlock();
 
                             // queue updated, notify outer code
                             if (receive_event != -1) {
-                                Utils::WriteToEventFd(receive_event, 1);
+                                Utils::WriteEventFd(receive_event, 1);
                             }
                         }
                     }
@@ -352,6 +366,9 @@ bool DowowNetwork::Connection::Send() {
 }
 
 bool DowowNetwork::Connection::PopSendQueue() {
+    // Lock the send queue
+    MTLock(__msq, mutex_sq);
+
     // check if no data in queue
     if (!send_queue.size())
         return false;
@@ -411,8 +428,7 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
     is_disconnecting = false;
 
     // reset IDs
-    free_request_id = 1;
-    SetEvenRequestIdsPart(false);
+    free_request_id = is_even_request_parts ? 2 : 1;
 
     // assign the socket
     this->socket_fd = socket_fd;
@@ -424,7 +440,7 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
 
 void DowowNetwork::Connection::SetEvenRequestIdsPart(bool state) {
     // lock
-    MTLock(__mm, mutex_main);
+    MTLock(__mfri, mutex_fri);
     
     // set the state
     is_even_request_parts = state;
@@ -461,8 +477,8 @@ time_t DowowNetwork::Connection::GetTheirNaIntervalLimit() {
 }
 
 DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_copy, int timeout, bool change_request_id) {
-    // lock the
-    MTLock(__mm, mutex_main);
+    // lock the send queue
+    MTLock(__msq, mutex_sq);
 
     // not connected or disconnecting
     if (!IsConnected() || IsDisconnecting()) {
@@ -483,6 +499,8 @@ DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_co
     uint32_t req_id = req->GetId();
     // must change the request id
     if (change_request_id) {
+        // lock the free request id
+        MTLock(__mfri, mutex_fri);
         // store the request id
         req_id = free_request_id;
         // set the id
@@ -495,7 +513,7 @@ DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_co
     send_queue.push(req);
 
     // notify the thread
-    Utils::WriteToEventFd(push_event, 1);
+    Utils::WriteEventFd(push_event, 1);
 
     return 0;
 }
@@ -509,8 +527,8 @@ DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
     // not checking if connected, because the pulling
     // may be needed after the disconnection
 
-    // lock
-    mutex_main.lock();
+    // lock the receive queue
+    mutex_rq.lock();
 
     // check if has elements
     if (recv_queue.size()) {
@@ -519,19 +537,19 @@ DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
         recv_queue.pop();
 
         // unlock
-        mutex_main.unlock();
+        mutex_rq.unlock();
         return req;
     }
 
     // no timeout
     if (!timeout) {
-        mutex_main.unlock();
+        mutex_rq.unlock();
         return 0;
     }
 
     // someone is already waiting for Pull, quit
     if (receive_event != -1) {
-        mutex_main.unlock();
+        mutex_rq.unlock();
         return 0;
     }
 
@@ -542,13 +560,13 @@ DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
     pollfd pollfds { receive_event, POLLIN, 0 };
 
     // unlock
-    mutex_main.unlock();
+    mutex_rq.unlock();
 
     // poll
     poll(&pollfds, 1, timeout);
 
     // lock
-    mutex_main.lock();
+    mutex_rq.lock();
 
     // get the result
     Request *res = Pull(0);
@@ -558,48 +576,36 @@ DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
     receive_event = -1;
 
     // unlock
-    mutex_main.unlock();
+    mutex_rq.unlock();
 
     return res;
 }
 
 void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {
-    // lock
-    mutex_main.lock();
-
     // check if not connected or disconnecting
-    if (!IsConnected() || IsDisconnecting()) {
-        mutex_main.unlock();
+    if (!IsConnected()) {
         return;
     }
-
-    int efd = GetStoppedEvent();
-
-    if (wait_for_join && stopped_event == -1)
-        stopped_event = eventfd(0, 0);
 
     // check if requesting graceful disconnection
     if (!forced) {
         // already disconnecting
         if (IsDisconnecting()) {
-            mutex_main.unlock();
             return;
         }
 
         // mark for disconnection
         is_disconnecting = true;
+        // interrupt the thread
+        Utils::WriteEventFd(push_event, 1);
     } else {
-        Utils::WriteToEventFd(to_stop_event, 1);
+        // forced
+        Utils::WriteEventFd(to_stop_event, 1);
     }
 
-    mutex_main.unlock();
-    // must wait for join
-    if (wait_for_join) {
-        pollfd pollfds = { efd, POLLIN, 0 };
-        poll(&pollfds, 1, -1);
-        uint64_t v_val;
-        read(efd, &v_val, sizeof(v_val));
-    }
+    // waiting for join
+    if (wait_for_join)
+        WaitForStop(-1);
 }
 
 bool DowowNetwork::Connection::IsConnected() {
@@ -617,9 +623,6 @@ uint8_t DowowNetwork::Connection::GetType() {
 }
 
 int DowowNetwork::Connection::GetStoppedEvent() {
-    MTLock(__etm, mutex_main);
-    if (stopped_event == -1)
-        stopped_event = eventfd(0, 0);
     return stopped_event;
 }
 
@@ -632,18 +635,14 @@ bool DowowNetwork::Connection::WaitForStop(int timeout) {
 }
 
 void DowowNetwork::Connection::SetHandlerDefault(RequestHandler h) {
-    MTLock(__hm, mutex_main);
     handler_default = h;
 }
 
 DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerDefault() {
-    MTLock(__hm, mutex_main);
     return handler_default;
 }
 
 void DowowNetwork::Connection::SetHandlerNamed(std::string name, RequestHandler h) {
-    MTLock(__mm, mutex_main);
-
     // must delete and is set
     if (h == 0) {
         auto it = handlers_named.find(name);
@@ -658,8 +657,6 @@ void DowowNetwork::Connection::SetHandlerNamed(std::string name, RequestHandler 
 }
 
 DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerNamed(std::string name) {
-    MTLock(__mm, mutex_main);
-
     auto it = handlers_named.find(name);
     // is not set
     if (it == handlers_named.end()) return 0;
@@ -668,37 +665,35 @@ DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerNamed(std::stri
     return it->second;
 }
 
-void DowowNetwork::Connection::SetSendBlockSize(uint32_t bs) {
-    MTLock(__mm, mutex_main);
+void DowowNetwork::Connection::SetHandlersMT(bool state) {
+    mt_handlers = state;
+}
 
+bool DowowNetwork::Connection::GetHandlersMT() {
+    return mt_handlers;
+}
+
+void DowowNetwork::Connection::SetSendBlockSize(uint32_t bs) {
     // not less than 1
     if (bs < 1) bs = 1;
     send_block_size = bs;
 }
 
 uint32_t DowowNetwork::Connection::GetSendBlockSize() {
-    MTLock(__mm, mutex_main);
-
     return send_block_size;
 }
 
 void DowowNetwork::Connection::SetRecvBlockSize(uint32_t bs) {
-    MTLock(__mm, mutex_main);
-
     // not less than 1
     if (bs < 1) bs = 1;
     recv_block_size = bs;
 }
 
 uint32_t DowowNetwork::Connection::GetRecvBlockSize() {
-    MTLock(__mm, mutex_main);
-
     return recv_block_size;
 }
 
 void DowowNetwork::Connection::SetMaxRequestSize(uint32_t size) {
-    MTLock(__mm, mutex_main);
-
     // not less than 10 (request header + 1 symbol of request name)
     if (size < 10) size = 10;
 
@@ -706,8 +701,6 @@ void DowowNetwork::Connection::SetMaxRequestSize(uint32_t size) {
 }
 
 uint32_t DowowNetwork::Connection::GetMaxRequestSize() {
-    MTLock(__mm, mutex_main);
-
     return recv_buffer_max_length;
 }
 

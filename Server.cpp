@@ -39,9 +39,17 @@ DowowNetwork::Connection* DowowNetwork::Server::AcceptOne() {
 
 void DowowNetwork::Server::ServerThreadFunc(Server *s) {
     while (true) {
+        // whether should accept new clients
+        bool accept_new = true;
+        if (s->max_connections >= 0) {
+            accept_new =
+                static_cast<int32_t>(s->connections.size()) <
+                s->max_connections;
+        }
+
         pollfd *pollfds = new pollfd[2 + s->connections.size()];
         // server socket
-        pollfds[0].fd = s->socket_fd;
+        pollfds[0].fd = accept_new ? s->socket_fd : -1;
         pollfds[0].events = POLLIN;
         // 'to_stop' event
         pollfds[1].fd = s->to_stop_event;
@@ -121,25 +129,20 @@ void DowowNetwork::Server::ServerThreadFunc(Server *s) {
     // lock
     std::lock_guard<typeof(s->mutex_server)> __sm(s->mutex_server);
 
+    // make all the open connections close
+    for (auto c : s->connections)
+        delete c;
+
     // close the server socket
     close(s->socket_fd);
     // close to_stop fd
     close(s->to_stop_event);
-
-    // make all the open connections close
-    for (auto c : s->connections)
-        delete c;
     
     // clear
     s->connections.clear();
 
-    // check if need to notify about stop
-    if (s->stopped_event != -1) {
-        // notify about stop
-        Utils::WriteToEventFd(s->stopped_event, 1);
-        // close the event fd
-        close(s->stopped_event);
-    }
+    // notify about stop
+    Utils::WriteEventFd(s->stopped_event, 1);
 
     // UNIX socket - delete it
     if (s->GetType() == SocketTypeUnix)
@@ -148,12 +151,11 @@ void DowowNetwork::Server::ServerThreadFunc(Server *s) {
     // reset some data
     s->socket_fd = -1;
     s->to_stop_event = -1;
-    s->stopped_event = -1;
     s->socket_type = SocketTypeUndefined;
 }
 
 DowowNetwork::Server::Server() {
-    // here goes nothing
+    stopped_event = eventfd(0, 0);
 }
 
 bool DowowNetwork::Server::StartUnix(std::string path, bool dof) {
@@ -307,40 +309,36 @@ uint8_t DowowNetwork::Server::GetType() {
     return socket_type;
 }
 
+void DowowNetwork::Server::SetMaxConnections(int32_t c) {
+    max_connections = c;
+}
+
+int32_t DowowNetwork::Server::GetMaxConnections() {
+    return max_connections;
+}
+
 void DowowNetwork::Server::Stop(int timeout) {
     // check if server is not started
     if (GetType() == SocketTypeUndefined) return;
 
-    // must wait for stop
-    if (timeout && stopped_event == -1)
-        stopped_event = eventfd(0, 0);
-
     // make the thread stop
-    Utils::WriteToEventFd(to_stop_event, 1);
+    Utils::WriteEventFd(to_stop_event, 1);
 
-    // waiting for closure
-    if (timeout) {
-        pollfd pollfds { stopped_event, POLLIN, 0 };
-        poll(&pollfds, 1, timeout);
-    }
+    WaitForStop(timeout);
 }
 
 void DowowNetwork::Server::WaitForStop(int timeout) {
-    // no need to wait
-    if (!timeout) return;
+    // not started
+    if (GetType() == SocketTypeUndefined) return;
 
-    // check if need to set up the event
-    if (stopped_event == -1) {
-        stopped_event = eventfd(0, 0);
-    }
-
-    // prepare data for poll
-    pollfd pollfds { stopped_event, POLLIN, 0 };
-
-    // wait
-    poll(&pollfds, 1, timeout);
+    // wait for stopped event
+    Utils::SelectRead(stopped_event, timeout);
 }
 
 DowowNetwork::Server::~Server() {
+    // stop
     Stop(-1);
+
+    // close the stopped eventfd
+    close(stopped_event);
 }

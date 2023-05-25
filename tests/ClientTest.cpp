@@ -21,39 +21,72 @@ using namespace std;
 using namespace DowowNetwork;
 
 void HandlerPong(Connection *c, Request *r) {
+    // Getting the Value object.
     auto number_v = r->Get<Value32S>("number");
+    // Checking if not present.
     if (!number_v) {
-        cout << "No number!" << endl;
         delete r;
         return;
     }
+    // Getting the value itself.
     int32_t number = number_v->Get();
-    cout << "Received 'pong': " << number << endl;
+
+    // Log.
+    cout << "Received 'pong': " << number << ", waiting for a second" << endl;
     
+    // Sleeping so we can check WaitForStop().
+    sleep(1);
+
+    // Create a response.
     Request ping("ping");
     ping.Emplace<Value32S>("number", number);
+
+    // Send the response.
     c->Push(ping);
 
+    // Delete the request.
     delete r;
-    return;
 }
 
 void HandlerBye(Connection *c, Request *r) {
+    // Delete the request and disconnect. 
     delete r;
-    c->Disconnect(true);
+
+    // Create the stop request.
+    Request stop("stop");
+    c->Push(stop);
+    c->Disconnect(false, false);
+}
+
+void HandlerDefault(Connection *c, Request *r) {
+    // Log.
+    cout << "Default handler work, received request:" << endl;
+    cout << r->ToString() << endl;
+
+    // Delete the request.
+    delete r;
 }
 
 int main(int argc, char** argv) {
     // Create a client.
     Client client;
+
+    // Make the client execute handlers in separate thread.
+    // * That's default behavior but let's leave it here
+    // * for demonstration purposes!
+    client.SetHandlersMT(true);
+
     // Setup the named handlers.
-    // * They are started in new threads when
-    // * a request with specified name is received.
     client.SetHandlerNamed("pong", HandlerPong);
     client.SetHandlerNamed("bye", HandlerBye);
 
+    // Setup the default handler.
+    // * It's executed when no appropriate named handler
+    // * is found.
+    client.SetHandlerDefault(HandlerDefault);
+
     // Connect to the server with 30 seconds timeout.
-    if (!client.ConnectTcp("127.0.0.1", 23050, 30)) {
+    if (!client.ConnectTcp("127.0.0.1", 23050, 0)) {
         cout << "Failed to connect to 127.0.0.1:23050" << endl;
         return 1;
     }
@@ -74,7 +107,10 @@ int main(int argc, char** argv) {
     // Wait for disconnection.
     client.WaitForStop();
 
-    cout << "Closed" << endl;
+    // Log.
+    cout << "Disconnected. Waiting for a second so all the threads will quit." << endl;
+
+    sleep(1);
 
     return 0;
 }

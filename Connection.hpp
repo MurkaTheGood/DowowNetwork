@@ -48,7 +48,14 @@ namespace DowowNetwork {
         const timespec zero_time { 0, 0 };
 
         // main mutex
-        std::recursive_mutex mutex_main;
+        // std::recursive_mutex mutex_main;
+
+        // mutex for send queue
+        std::recursive_mutex mutex_sq;
+        // mutex for receive queue
+        std::recursive_mutex mutex_rq;
+        // mutex for free request id
+        std::recursive_mutex mutex_fri;
 
         /// The ID of the free request.
         uint32_t free_request_id = 1;
@@ -102,6 +109,9 @@ namespace DowowNetwork {
         RequestHandler handler_default = 0;
         /// The map of the pointers to the named request handlers.
         std::map<std::string, RequestHandler> handlers_named;
+
+        /// Whether should create a new thread for each handler instance.
+        bool mt_handlers = true;
 
         /// Push() event
         int push_event = -1;
@@ -233,11 +243,16 @@ namespace DowowNetwork {
         void SetTheirNaIntervalLimit(time_t interval);
         time_t GetTheirNaIntervalLimit();
 
+        /// MT-Safe
         Request* Push(Request* request, bool to_copy = true, int timeout = 0, bool change_request_id = true);
+        /// MT-Safe
         Request* Push(Request& req, int timeout = 0, bool change_request_id = true);
 
+        /// MT-Safe
         Request* Pull(int timeout = 0);
 
+        /// \warning    Do not call this function in non-multithreaded handler
+        //              if you are also waiting for join. Deadlock will happen.
         void Disconnect(bool forced = false, bool wait_for_join = false);
         bool IsConnected();
         bool IsDisconnecting();
@@ -252,6 +267,9 @@ namespace DowowNetwork {
 
         void SetHandlerNamed(std::string name, RequestHandler h);
         RequestHandler GetHandlerNamed(std::string name);
+
+        void SetHandlersMT(bool state);
+        bool GetHandlersMT();
 
         void SetSendBlockSize(uint32_t bs);
         uint32_t GetSendBlockSize();

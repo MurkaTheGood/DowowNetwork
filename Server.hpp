@@ -29,6 +29,8 @@ namespace DowowNetwork {
         int socket_fd = -1;
         // accepted clients
         std::list<Connection*> connections;
+        // maximum amount of connected clients, negative for unlimited
+        int32_t max_connections = -1;
 
         // socket type (undefined if server is not running)
         uint8_t socket_type = SocketTypeUndefined; 
@@ -67,91 +69,18 @@ namespace DowowNetwork {
         /// Server constructor.
         Server();
 
-        /// Start the UNIX domain server.
-        /*!
-            Does nothing if already started.
-
-            \param socket_path the path to the UNIX socket (will be created)
-            \param delete_old_file whether the old file must be deleted if it exists
-
-            \return
-                true on success, false on failure
-
-            \warning
-                If delete_old_file is false but the file exists then an
-                error will likely occur.
-        */
         bool StartUnix(std::string socket_path, bool delete_old_file = true);
-        /// Get the UNIX socket path.
-        /*!
-            \return
-                The path to the UNIX socket.
-
-            \warning
-                If the server is not running in UNIX domain then this method
-                should not be called.
-
-            \sa StartUnix();
-        */
         std::string GetUnixPath();
 
-        /// Start the TCP domain server.
-        /*!
-            Does nothing if already started.
-
-            \param ip the ip to use in format "127.0.0.1" or "0.0.0.0" and
-                    so on. Hostnames are not supported!
-            \param port the port to use
-
-            \return
-                true on success, false on failure.
-        */
         bool StartTcp(std::string ip, uint16_t port);
-        /// Get the TCP IP as 32-bit unsigned integer.
-        /*!
-            \return The IP of the server as 32-bit unsigned integer in host
-                    byteorder.
-
-            \warning
-                If the server is not running in TCP domain then this method
-                should not be called.
-
-            \sa StartTcp();
-        */
         uint32_t GetTcpIp();
-        /// Get the TCP IP as string.
-        /*!
-            \return The IP of the server in string format.
-
-            \warning
-                If the server is not running in TCP domain then this method
-                should not be called.
-
-            \sa StartTcp();
-        */
         std::string GetTcpIpString();
-        /// Get the TCP port.
-        /*!
-            \return The port of the server as 16-bit unsigned integer in
-                    host byteorder.
-
-            \warning
-                If the server is not running in TCP domain then this method
-                should not be called.
-
-            \sa StartTcp();
-        */
         uint16_t GetTcpPort();
 
-        /// Get the socket type.
-        /*!
-            \return
-                The socket type as defined in enum SocketType.
-                Undefined type means the server isn't started.
-
-            \sa SocketType.hpp.
-        */
         uint8_t GetType();
+
+        void SetMaxConnections(int32_t c);
+        int32_t GetMaxConnections();
 
 
         /// Set the 'connected' handler.

@@ -20,9 +20,15 @@
 using namespace std;
 using namespace DowowNetwork;
 
+// Create a server.
+Server server;
+
 void HandlerStop(Connection *conn, Request *req) {
-    conn->tag = "STOP";
-    conn->Disconnect();
+    cout << "Received the stop request" << endl;
+    // Handling 'stop'.
+    server.Stop(0);
+
+    delete req;
 }
 
 void HandlerBye(Connection *conn, Request *req) {
@@ -43,7 +49,7 @@ void HandlerPing(Connection *conn, Request *req) {
     int32_t number = number_v->Get();
 
     // the response
-    if (number < 10) {
+    if (number < 3) {
         Request pong("pong");
         pong.Emplace<Value32S>("number", number + 1);
         conn->Push(pong);
@@ -58,31 +64,50 @@ void HandlerPing(Connection *conn, Request *req) {
 void HandlerConnected(Server *server, Connection *conn) {
     std::cout << "Connected" << endl;
 
-    // init handlers
+    // Setup the handlers.
     conn->SetHandlerNamed("ping", HandlerPing);
     conn->SetHandlerNamed("bye", HandlerBye);
     conn->SetHandlerNamed("stop", HandlerStop);
 
-    // send initial pong
-    Request pong("pong");
-    pong.Emplace<Value32S>("number", 0);
-    conn->Push(pong);
+    // Send a request to test dafault handler.
+    Request yay("yay_it_works");
+    yay.Emplace<ValueStr>("text", "Yay! It works!");
+    yay.Emplace<Value64U>("very_big_number", 0xfffffffffffff);
+    yay.Emplace<Value32U>("not_so_big_number", 0xffffffff);
+    yay.Emplace<Value16U>("pretty_big_number", 0xffff);
+    yay.Emplace<Value8U>("small_number", 0xff);
+    yay.Emplace<Value8S>("negative_number", -0x10);
+    yay.Emplace<Value64U>("hours_spent_to_develop_this_thing", 0xffffffffffffffff);
+    conn->Push(yay);
 }
 
 void HandlerDisconnected(Server *s, Connection *c) {
+    // Log.
     std::cout << "Disconnected" << endl;
-    if (c->tag == "STOP") {
-        s->Stop();
-    }
 }
 
 int main(int argc, char** argv) {
-    Server server;
+    // Setup handlers for connection and disconnection.
     server.SetConnectedHandler(HandlerConnected);
     server.SetDisconnectedHandler(HandlerDisconnected);
+
+    // Limit maximum connections amount to 5.
+    server.SetMaxConnections(5);
+
+    // Start the server.
     server.StartTcp("127.0.0.1", 23050);
-    cout << "Started!" << endl;
+
+    // Log.
+    cout << "Started on 127.0.0.1:23050" << endl;
+
+    // Wait for stop.
     server.WaitForStop();
-    cout << "Stopped!" << endl;
+
+    // Log.
+    cout << "Stopped! Waiting for a second..." << endl;
+
+    // Sleep
+    sleep(1);
+
     return 0;
 }

@@ -20,6 +20,9 @@ namespace DowowNetwork {
     */
     class Client : public Connection {
     private:
+        // mutex for temp socket
+        std::mutex mutex_tsfd;
+
         // file descriptor for a socket trying to connect to the server
         int temp_socket_fd = -1;
 

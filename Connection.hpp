@@ -56,6 +56,8 @@ namespace DowowNetwork {
         std::recursive_mutex mutex_rq;
         // mutex for free request id
         std::recursive_mutex mutex_fri;
+        // mutex for refs amount
+        std::recursive_mutex mutex_ra;
 
         /// The ID of the free request.
         uint32_t free_request_id = 1;
@@ -131,6 +133,9 @@ namespace DowowNetwork {
         /// The amount of time they are considered disconnected after.
         time_t their_na_interval = 60;
 
+        /// Amount of links to this connection outside the library.
+        uint32_t refs_amount = 0;
+
         /// Polling thread function
         static void ConnThreadFunc(Connection* conn);
 
@@ -157,81 +162,23 @@ namespace DowowNetwork {
         /// Delete the receive buffer.
         void DeleteRecvBuffer();
 
-        /// Perform I/O operations related to receival.
-        /*!
-            This method will receive as much data as possible
-            with one recv() call. The call is blocking, so perform
-            checks for availability beforehand.
-
-            If the Request is received:
-            1.  An attempt to deserialize it will be done. On failure the
-                Request is just deleted. On success it will be passed to the
-                next step.
-            2.  The Request will be passed through all the set handlers. If
-                no handler reports successful handling, then the Request will
-                be added to the receive queue.
-
-            \return
-                true if no connection errors occured.
-                false if connection is lost.
-        */
         bool Receive();
 
-        /// Perform I/O operations related to sending.
-        /*!
-            1.  If send buffer exists then the method will send
-                the data from it.
-            2.  If no send buffer exists then the method will pop
-                one Request from the send queue.
-            3.  If the queue is empty then the method returns
-                immidiately.
-
-            In nonblocking mode it will send as much data as possible
-            with one send() call. The call is blocking.
-
-            \return
-                true if no connection errors occured.
-                false if connection is lost.
-        */
         bool Send();
 
-        /// Pop one element from the send queue.
-        /*!
-            Pops the first element of the send_queue and
-            serializes it into send buffer.
-
-            \return
-                    true if there was something to pop.
-
-            \warning
-                    This method does not delete the old buffer
-                    if it exists!
-        */
         bool PopSendQueue();
 
-        /// Initialize the connection with an existing socket.
-        /*!
-            Does nothing if already connected.
-            It automatically guesses the domain of the socket,
-            sets the initial values of keep_alive timers.
-
-            \param socket_fd the socket that the connection is initialized
-                with.
-        */
         void InitializeByFD(int socket_fd);
 
-        /// Set the part of the request IDs.
-        /*!
-            Our requests will have even IDs if we occupy the
-            even part of IDs.
-
-            \param state should we occupy the even part?
-        */
         void SetEvenRequestIdsPart(bool state);
     public:
+        /// Connection ID.
+        uint32_t id = 0;
+
         /// The connection tag.
         /// Can be used for any purposes.
         std::string tag;
+
 
         /// Default constructor.
         //! Effectively just calls InitializeByFD().
@@ -250,6 +197,13 @@ namespace DowowNetwork {
 
         /// MT-Safe
         Request* Pull(int timeout = 0);
+
+        /// MT-Safe
+        uint32_t GetRefs();
+        /// MT-Safe
+        void IncreaseRefs();
+        /// MT-Safe
+        void DecreaseRefs();
 
         /// \warning    Do not call this function in non-multithreaded handler
         //              if you are also waiting for join. Deadlock will happen.

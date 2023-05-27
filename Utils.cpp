@@ -27,10 +27,12 @@ void DowowNetwork::Utils::WriteEventFd(int fd, uint64_t num) {
 }
 
 uint64_t DowowNetwork::Utils::ReadEventFd(int fd, int timeout) {
-    SelectRead(fd, timeout);
-    uint64_t result;
-    read(fd, &result, sizeof(result));
-    return result;
+    if (SelectRead(fd, timeout)) {
+        uint64_t result;
+        read(fd, &result, sizeof(result));
+        return result;
+    }
+    return 0;
 }
 
 void DowowNetwork::Utils::SetTimerFdTimeout(int fd, time_t seconds) {

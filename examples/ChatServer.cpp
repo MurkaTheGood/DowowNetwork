@@ -6,24 +6,26 @@
 
 #include <algorithm>
 #include <list>
+#include <atomic>
 #include <iostream>
 
 using namespace std;
 using namespace DowowNetwork;
 
-enum ClientStates {
-    ClientStateLogin = 0,
-    ClientStateOnline = 1
+// Structure for a chat user.
+struct Participant {
+    // the nickname
+    std::string nickname;
+    // amount of sent message
+    uint32_t messages_sent;
+
+    // assigned connection id
+    uint32_t id;
 };
 
-struct SessionData {
-    string username;
-    int messages_sent = 0;
-    int state = ClientStateLogin;
-};
+// List of all chat participants.
+list<Participant> participants;
 
-std::string server_name = "Undefined";
-list<Connection*> connections;
 Server server;
 
 void IssueMessage(string from, string to, string text) {
@@ -34,35 +36,41 @@ void IssueMessage(string from, string to, string text) {
     req.Emplace<ValueStr>("text", text);
     // send to everyone
     if (to.empty()) {
-        for (auto i : connections) {
-            // get the session data
-            SessionData* s_data = i->GetSessionData<SessionData>();
-            // not logged in yet
-            if (s_data->state == ClientStateLogin) continue;
+        for (auto i : participants) {
+            // get a specific connection
+            auto c = server.GetConnection(i.id);
 
             // send
-            i->Push(req);
+            (*c)()->Push(req);
+
+            // delete
+            delete c;
         }
-        return;
+    } else {
+        auto i = find_if(
+            participants.begin(),
+            participants.end(),
+            [&](Participant &p) {
+                return p->username == to;
+            });
+        
+        if (i != participants.end()) {
+            req.Emplace<ValueStr>("to", to);
+
+            // get a specific connection
+            auto c = server.GetConnection(i->id);
+
+            // send
+            (*c)()->Push(req);
+
+            // delete
+            delete c;
+        }
     }
-
-    // send to specific user
-    auto i = find_if(
-        connections.begin(),
-        connections.end(),
-        [&](Connection* c) {
-            return c->GetSessionData<SessionData>()->username == to;
-        });
-
-    if (i == connections.end())
-        return;
-
-    // send
-    (*i)->Push(req);
 }
 
-Request *GenerateErrorResponse(string text) {
-    Request *res = new Request("error");
+Request GenerateErrorResponse(string text) {
+    Request res = new Request("error");
     res->Emplace<ValueStr>("text", text);
     return res;
 }

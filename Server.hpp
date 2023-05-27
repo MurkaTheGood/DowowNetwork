@@ -14,6 +14,7 @@
 #include <mutex>
 
 #include "Connection.hpp"
+#include "SafeConnection.hpp"
 #include "Request.hpp"
 #include "SocketType.hpp"
 
@@ -82,6 +83,8 @@ namespace DowowNetwork {
         void SetMaxConnections(int32_t c);
         int32_t GetMaxConnections();
 
+        SafeConnection *GetConnection(std::string tag);
+        SafeConnection *GetConnection(uint32_t id);
 
         /// Set the 'connected' handler.
         inline void SetConnectedHandler(ConnectionHandler handler) {

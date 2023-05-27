@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #include <thread>
+#include <algorithm>
 
 #include <iostream>
 
@@ -38,6 +39,10 @@ DowowNetwork::Connection* DowowNetwork::Server::AcceptOne() {
 }
 
 void DowowNetwork::Server::ServerThreadFunc(Server *s) {
+    // free id for a new connection
+    uint32_t free_conn_id = 1;
+
+    // infinite loop
     while (true) {
         // whether should accept new clients
         bool accept_new = true;
@@ -108,6 +113,8 @@ void DowowNetwork::Server::ServerThreadFunc(Server *s) {
             Connection *new_conn = s->AcceptOne();
             // not an error
             if (new_conn) {
+                // assign the id
+                new_conn->id = free_conn_id++;
                 // add to the list of connections
                 s->connections.push_back(new_conn);
             }
@@ -315,6 +322,32 @@ void DowowNetwork::Server::SetMaxConnections(int32_t c) {
 
 int32_t DowowNetwork::Server::GetMaxConnections() {
     return max_connections;
+}
+
+DowowNetwork::SafeConnection *DowowNetwork::Server::GetConnection(std::string tag) {
+    auto it = std::find_if(
+        connections.begin(),
+        connections.end(),
+        [&](Connection *c) {
+            return c->tag == tag;
+        });
+
+    if (it == connections.end()) return 0;
+
+    return new SafeConnection(*it);
+}
+
+DowowNetwork::SafeConnection *DowowNetwork::Server::GetConnection(uint32_t id) {
+    auto it = std::find_if(
+        connections.begin(),
+        connections.end(),
+        [&](Connection *c) {
+            return c->id == id;
+        });
+
+    if (it == connections.end()) return 0;
+
+    return new SafeConnection(*it);
 }
 
 void DowowNetwork::Server::Stop(int timeout) {

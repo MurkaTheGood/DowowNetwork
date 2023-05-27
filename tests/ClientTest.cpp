@@ -39,7 +39,7 @@ void HandlerPong(Connection *c, Request *r) {
 
     // Create a response.
     Request ping("ping");
-    ping.Emplace<Value32S>("number", number);
+    ping.Emplace<Value32S>("number", number - 2);
 
     // Send the response.
     c->Push(ping);
@@ -85,8 +85,9 @@ int main(int argc, char** argv) {
     // * is found.
     client.SetHandlerDefault(HandlerDefault);
 
+    cout << "Connecting" << endl;
     // Connect to the server with 30 seconds timeout.
-    if (!client.ConnectTcp("127.0.0.1", 23050, 0)) {
+    if (!client.ConnectTcp("127.0.0.1", 23050, -1)) {
         cout << "Failed to connect to 127.0.0.1:23050" << endl;
         return 1;
     }

@@ -126,7 +126,7 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     // mark as disconnecting
     c->is_disconnecting = true;
 
-    // notify all events
+    // notify all events if no external references
     if (c->receive_event != -1) {
         Utils::WriteEventFd(c->receive_event, 1);
     }
@@ -142,10 +142,6 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     // delete
     c->DeleteSendBuffer();
     c->DeleteRecvBuffer();
-    while (c->recv_queue.size()) {
-        delete c->recv_queue.front();
-        c->recv_queue.pop();
-    }
     while (c->send_queue.size()) {
         delete c->send_queue.front();
         c->send_queue.pop();
@@ -154,8 +150,9 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     // mark as undefined
     c->socket_type = SocketTypeUndefined;
 
-    // notify about stop
-    Utils::WriteEventFd(c->stopped_event, 1);
+    // notify about stop (if no external references)
+    if (!c->GetRefs())
+        Utils::WriteEventFd(c->stopped_event, 1);
 }
 
 bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
@@ -416,6 +413,9 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
     push_event = eventfd(0, 0);
     to_stop_event = eventfd(0, 0);
 
+    // reset the 'stopped' event
+    Utils::ReadEventFd(stopped_event, 0);
+
     // create the timers for keep-alive mechanism
     our_sa_timer = timerfd_create(CLOCK_MONOTONIC, 0);
     their_na_timer = timerfd_create(CLOCK_MONOTONIC, 0);
@@ -429,6 +429,12 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
 
     // reset IDs
     free_request_id = is_even_request_parts ? 2 : 1;
+
+    // cleanup receive queue
+    while (recv_queue.size()) {
+        delete recv_queue.front();
+        recv_queue.pop();
+    }
 
     // assign the socket
     this->socket_fd = socket_fd;
@@ -579,6 +585,25 @@ DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
     mutex_rq.unlock();
 
     return res;
+}
+
+uint32_t DowowNetwork::Connection::GetRefs() {
+    MTLock(__mra, mutex_ra);
+    return refs_amount;
+}
+
+void DowowNetwork::Connection::IncreaseRefs() {
+    mutex_ra.lock();
+    refs_amount++;
+    mutex_ra.unlock();
+}
+
+void DowowNetwork::Connection::DecreaseRefs() {
+    mutex_ra.lock();
+    refs_amount--;
+    if (is_disconnecting && !refs_amount)
+        Utils::WriteEventFd(stopped_event, 1);
+    mutex_ra.unlock();
 }
 
 void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {

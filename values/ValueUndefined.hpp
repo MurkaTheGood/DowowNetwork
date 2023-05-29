@@ -10,9 +10,9 @@ namespace DowowNetwork {
         uint32_t undefined_data_length = 0;
     protected:
         uint32_t DeserializeInternal(const char* data, uint32_t length);
-        char* SerializeInternal();
-        uint32_t GetSizeInternal();
-        std::string ToStringInternal(uint16_t indent);
+        const char* SerializeInternal() const;
+        uint32_t GetSizeInternal() const;
+        std::string ToStringInternal(uint16_t indent) const;
     public:
         ValueUndefined();
 

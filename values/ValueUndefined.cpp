@@ -20,17 +20,17 @@ uint32_t DowowNetwork::ValueUndefined::DeserializeInternal(const char* data, uin
     return length;
 }
 
-char* DowowNetwork::ValueUndefined::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
+const char* DowowNetwork::ValueUndefined::SerializeInternal() const{
+    char* copy = new char[GetSizeInternal()];
     memcpy(copy, undefined_data, GetSizeInternal());
     return copy;
 }
 
-uint32_t DowowNetwork::ValueUndefined::GetSizeInternal() {
+uint32_t DowowNetwork::ValueUndefined::GetSizeInternal() const {
     return undefined_data_length;
 }
 
-std::string DowowNetwork::ValueUndefined::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::ValueUndefined::ToStringInternal(uint16_t indent) const {
     return "undefined[" + std::to_string(indent) + "]";
 }
 

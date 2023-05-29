@@ -110,7 +110,7 @@ char* DowowNetwork::Datum::Serialize() {
     memcpy(res + 6, name.c_str(), name.size());
 
     // fill the value
-    char* value = this->value->Serialize();
+    const char* value = this->value->Serialize();
     memcpy(res + 6 + name.size(), value, this->value->GetSize());
     delete[] value;
 

@@ -17,17 +17,17 @@ uint32_t DowowNetwork::Value8S::DeserializeInternal(const char* data, uint32_t l
     return sizeof(value);
 }
 
-char* DowowNetwork::Value8S::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
-    copy[0] = reinterpret_cast<char*>(&value)[0];
+const char* DowowNetwork::Value8S::SerializeInternal() const {
+    char* copy = new char[GetSizeInternal()];
+    copy[0] = reinterpret_cast<const char*>(&value)[0];
     return copy;
 }
 
-uint32_t DowowNetwork::Value8S::GetSizeInternal() {
+uint32_t DowowNetwork::Value8S::GetSizeInternal() const {
     return sizeof(value);
 }
 
-std::string DowowNetwork::Value8S::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::Value8S::ToStringInternal(uint16_t indent) const {
     return "int8_t: " + std::to_string((int)value);
 }
 

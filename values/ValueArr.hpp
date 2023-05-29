@@ -13,9 +13,9 @@ namespace DowowNetwork {
         std::vector<Value*> array;
     protected:
         uint32_t DeserializeInternal(const char* data, uint32_t length);
-        char* SerializeInternal();
-        uint32_t GetSizeInternal();
-        std::string ToStringInternal(uint16_t indent);
+        const char* SerializeInternal() const;
+        uint32_t GetSizeInternal() const;
+        std::string ToStringInternal(uint16_t indent) const;
     public:
         ValueArr();
 
@@ -36,9 +36,6 @@ namespace DowowNetwork {
         void Clear();
 
         void CopyFrom(Value* original);
-
-        // operator to make beautiful get
-        Value*& operator[](uint32_t index);
 
         ~ValueArr();
     };

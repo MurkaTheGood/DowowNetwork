@@ -18,8 +18,8 @@ uint32_t DowowNetwork::Value8U::DeserializeInternal(const char* data, uint32_t l
     return sizeof(value);
 }
 
-char* DowowNetwork::Value8U::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
+const char* DowowNetwork::Value8U::SerializeInternal() const {
+    char* copy = new char[GetSizeInternal()];
 
     // copy to result
     memcpy(copy, &value, GetSizeInternal());
@@ -27,11 +27,11 @@ char* DowowNetwork::Value8U::SerializeInternal() {
     return copy;
 }
 
-uint32_t DowowNetwork::Value8U::GetSizeInternal() {
+uint32_t DowowNetwork::Value8U::GetSizeInternal() const {
     return sizeof(value);
 }
 
-std::string DowowNetwork::Value8U::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::Value8U::ToStringInternal(uint16_t indent) const {
     return "uint8_t: " + std::to_string((int)value);
 }
 

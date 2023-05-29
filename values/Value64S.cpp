@@ -22,8 +22,8 @@ uint32_t DowowNetwork::Value64S::DeserializeInternal(const char* data, uint32_t 
     return sizeof(value);
 }
 
-char* DowowNetwork::Value64S::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
+const char* DowowNetwork::Value64S::SerializeInternal() const {
+    char* copy = new char[GetSizeInternal()];
     // converting the signed to unsigned without changing bits
     uint64_t temp = *reinterpret_cast<uint64_t*>((void*)&value);
     // converting to little endian
@@ -34,11 +34,11 @@ char* DowowNetwork::Value64S::SerializeInternal() {
     return copy;
 }
 
-uint32_t DowowNetwork::Value64S::GetSizeInternal() {
+uint32_t DowowNetwork::Value64S::GetSizeInternal() const {
     return sizeof(value);
 }
 
-std::string DowowNetwork::Value64S::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::Value64S::ToStringInternal(uint16_t indent) const {
     return "int64_t: " + std::to_string(value);
 }
 

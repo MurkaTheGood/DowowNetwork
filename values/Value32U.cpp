@@ -18,8 +18,8 @@ uint32_t DowowNetwork::Value32U::DeserializeInternal(const char* data, uint32_t 
     return sizeof(value);
 }
 
-char* DowowNetwork::Value32U::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
+const char* DowowNetwork::Value32U::SerializeInternal() const {
+    char* copy = new char[GetSizeInternal()];
 
     // converting to little endian
     uint32_t temp = htole32(value);
@@ -29,11 +29,11 @@ char* DowowNetwork::Value32U::SerializeInternal() {
     return copy;
 }
 
-uint32_t DowowNetwork::Value32U::GetSizeInternal() {
+uint32_t DowowNetwork::Value32U::GetSizeInternal() const {
     return sizeof(value);
 }
 
-std::string DowowNetwork::Value32U::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::Value32U::ToStringInternal(uint16_t indent) const {
     return "uint32_t: " + std::to_string(value);
 }
 

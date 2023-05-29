@@ -47,8 +47,8 @@ uint32_t DowowNetwork::ValueArr::DeserializeInternal(const char* data, uint32_t 
     return read_offset;
 }
 
-char* DowowNetwork::ValueArr::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
+const char* DowowNetwork::ValueArr::SerializeInternal() const {
+    char* copy = new char[GetSizeInternal()];
 
     // amount in LE
     uint32_t temp = htole32(array.size());
@@ -59,7 +59,7 @@ char* DowowNetwork::ValueArr::SerializeInternal() {
 
     // serialize all elements
     for (auto i : array) {
-        char* i_buf = i->Serialize();
+        const char* i_buf = i->Serialize();
         uint32_t i_size = i->GetSize();
         memcpy(copy + write_offset, i_buf, i_size);
         delete[] i_buf;
@@ -69,7 +69,7 @@ char* DowowNetwork::ValueArr::SerializeInternal() {
     return copy;
 }
 
-uint32_t DowowNetwork::ValueArr::GetSizeInternal() {
+uint32_t DowowNetwork::ValueArr::GetSizeInternal() const {
     // size of each element + 4 bytes of array length
     uint32_t sum = 4; 
     for (auto i : array) {
@@ -78,7 +78,7 @@ uint32_t DowowNetwork::ValueArr::GetSizeInternal() {
     return sum;
 }
 
-std::string DowowNetwork::ValueArr::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::ValueArr::ToStringInternal(uint16_t indent) const {
     std::string result = "array of size " + std::to_string(array.size()) + ":";
     std::string indent_str = "";
     for (int i = 0; i < indent + 4; i++) indent_str += ' ';
@@ -142,10 +142,6 @@ void DowowNetwork::ValueArr::CopyFrom(Value* original_) {
     New(original->array.size());
     for (size_t i = 0; i < array.size(); i++)
         Set(i, original->Get(i));
-}
-
-DowowNetwork::Value*& DowowNetwork::ValueArr::operator[](uint32_t index) {
-    return array[index];
 }
 
 DowowNetwork::ValueArr::~ValueArr() {

@@ -17,62 +17,52 @@ namespace DowowNetwork {
 #include "ValueType.hpp"
 
 namespace DowowNetwork {
-    /// The base class for all the Value types
+    //! Base class for all values.
     class Value {
     protected:
-        /// The value type
+        //! The value type.
         //! \sa ValueType.hpp.
         const uint8_t type;
 
-        /// The function that performs deserialization.
+        //! Perform content deserialization.
         /*!
-            This function must be defined in derived classes those
-            describe certain value types.
-
-            \param data pointer to the content of the Value.
+            \param data pointer to the content of the value.
             \param length the length of the content.
             \return 
                     - On success: The amount of bytes used
                     to deserialize the value.
                     - On failure: 0.
-
-            \warning    In the body of this function you must never ever
-                        delete the data parameter!
+            \warning    Never ever delete the data parameter!
             \sa SerializeInternal(), GetSizeInternal().
         */
         virtual uint32_t DeserializeInternal(const char* data, uint32_t length) = 0;
-        /// The function that performs serialization.
+        //! Perform content serialization.
         /*!
-            This function must be defined in derived classes those
-            describe certain value types.
-
             \return 
                     - On success: a pointer to the content buffer, that
                     can be deserialized with DeserializeInternal() function.
                     - On failure: 0.
             \warning
-                    The memory inside this function must be allocated using
-                    malloc() call! The allocated data must not be stored
-                    anywhere, it must be returned and forgotten by you!
-
+                    The resulting buffer must be created
+                    with 'new' operator!
             \sa DeserializeInternal(), GetSizeInternal().
         */
-        virtual char* SerializeInternal() = 0;
+        virtual const char* SerializeInternal() const = 0;
         
-        /// The function that calculates the size of the serialized Value.
+        //! Get the size of buffer returned by SerializeInternal().
         /*!
-            \return The size of the buffer allocated in function
+            \return The size of the buffer created in function
                     SerializeInternal().
             \sa SerializeInternal().
         */
-        virtual uint32_t GetSizeInternal() = 0;
+        virtual uint32_t GetSizeInternal() const = 0;
         
         /// The function that converts the Value to string.
         /*!
             \param indent the indentation level (in spaces).
             \return The string representation of the Value.
         */
-        virtual std::string ToStringInternal(uint16_t indent);
+        virtual std::string ToStringInternal(uint16_t indent) const;
     public:
         /// Create a value of specified type.
         /*!
@@ -103,13 +93,13 @@ namespace DowowNetwork {
             \warning Use delete[] operator to deallocate the memory!
             \sa GetSize()
         */
-        char* Serialize();
+        const char* Serialize() const;
         /// Get the size of the buffer returned by Serialize().
         /*! 
             \returns The length of the buffer returned by Serialize().
             \sa Serialize()
         */
-        uint32_t GetSize();
+        uint32_t GetSize() const;
 
         /// Create a deep copy of the original Value.
         /*!
@@ -125,7 +115,7 @@ namespace DowowNetwork {
             \return The type of the Value.
             \sa ValueType.hpp.
         */
-        uint8_t GetType();
+        uint8_t GetType() const;
 
         /// Convert the Value to string.
         /*!
@@ -135,7 +125,7 @@ namespace DowowNetwork {
             \return A string that contains the string represenatation
                     of the Value.
         */
-        std::string ToString(uint16_t indent = 0);
+        std::string ToString(uint16_t indent = 0) const;
 
         /// Value destructor.
         virtual ~Value();

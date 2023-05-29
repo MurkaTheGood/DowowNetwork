@@ -45,8 +45,8 @@ uint32_t DowowNetwork::ValueStr::DeserializeInternal(const char* data, uint32_t 
     return length;
 }
 
-char* DowowNetwork::ValueStr::SerializeInternal() {
-    char* copy = (char*)malloc(GetSizeInternal());
+const char* DowowNetwork::ValueStr::SerializeInternal() const {
+    char* copy = new char[GetSizeInternal()];
 
     // temp length in LE
     uint32_t temp = htole32(str_length);
@@ -59,12 +59,12 @@ char* DowowNetwork::ValueStr::SerializeInternal() {
     return copy;
 }
 
-uint32_t DowowNetwork::ValueStr::GetSizeInternal() {
+uint32_t DowowNetwork::ValueStr::GetSizeInternal() const {
     // string itself + 4 bytes of its length in the beginning
     return str_length + 4;
 }
 
-std::string DowowNetwork::ValueStr::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::ValueStr::ToStringInternal(uint16_t indent) const {
     if (str_length == 0)
         return "string[0]: <empty>";
 

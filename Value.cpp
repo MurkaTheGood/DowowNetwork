@@ -3,7 +3,7 @@
 
 #include "Value.hpp"
 
-std::string DowowNetwork::Value::ToStringInternal(uint16_t indent) {
+std::string DowowNetwork::Value::ToStringInternal(uint16_t indent) const {
     return
         "type: " + std::to_string((int)type) +
         "; size: " + std::to_string(GetSize()) + "B";
@@ -30,7 +30,7 @@ uint32_t DowowNetwork::Value::Deserialize(const char* data, uint32_t length) {
     return DeserializeInternal(data + 5, len) + 5;
 }
 
-char* DowowNetwork::Value::Serialize() {
+const char* DowowNetwork::Value::Serialize() const {
     // 5 bytes of metadata
     char *res = new char[5 + GetSizeInternal()];
 
@@ -42,22 +42,22 @@ char* DowowNetwork::Value::Serialize() {
     memcpy(res + 1, reinterpret_cast<char*>(&data_length), 4);
     
     // get the data
-    char* data = SerializeInternal();
+    const char* data = SerializeInternal();
     memcpy(res + 5, data, GetSizeInternal());
-    free(data);
+    delete[] data;
 
     return res;
 }
 
-uint32_t DowowNetwork::Value::GetSize() {
+uint32_t DowowNetwork::Value::GetSize() const {
     return GetSizeInternal() + 5;
 }
 
-uint8_t DowowNetwork::Value::GetType() {
+uint8_t DowowNetwork::Value::GetType() const {
     return type;
 }
 
-std::string DowowNetwork::Value::ToString(uint16_t indent) {
+std::string DowowNetwork::Value::ToString(uint16_t indent) const {
     // creating indent
     std::string indent_str = "";
     for (int i = 0; i < indent; i++) indent_str += ' ';

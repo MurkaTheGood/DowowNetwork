@@ -9,9 +9,9 @@ namespace DowowNetwork {
         int32_t value;
     protected:
         uint32_t DeserializeInternal(const char* data, uint32_t length);
-        char* SerializeInternal();
-        uint32_t GetSizeInternal();
-        std::string ToStringInternal(uint16_t indent);
+        const char* SerializeInternal() const;
+        uint32_t GetSizeInternal() const;
+        std::string ToStringInternal(uint16_t indent) const;
     public:
         Value32S(int32_t value = 0);
 

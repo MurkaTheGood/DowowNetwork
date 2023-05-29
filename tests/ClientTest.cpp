@@ -110,9 +110,7 @@ int main(int argc, char** argv) {
     client.WaitForStop();
 
     // Log.
-    cout << "Disconnected. Waiting for a second so all the threads will quit." << endl;
-
-    // sleep(1);
+    cout << "Disconnected" << endl;
 
     return 0;
 }

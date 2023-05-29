@@ -104,10 +104,7 @@ int main(int argc, char** argv) {
     server.WaitForStop();
 
     // Log.
-    cout << "Stopped! Waiting for a second..." << endl;
-
-    // Sleep
-    sleep(1);
+    cout << "Stopped" << endl;
 
     return 0;
 }

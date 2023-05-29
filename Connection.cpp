@@ -1,7 +1,6 @@
 #include "Connection.hpp"
 
 #include <cstring>
-
 #include <endian.h>
 #include <unistd.h>
 #include <stdint.h>
@@ -44,18 +43,20 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         pollfds[0].fd = c->to_stop_event;
         pollfds[0].events = POLLIN;
         // add socket fd
+        // remark:  we wait for input only if not disconnecting,
+        //          we wait for output only if we have something
+        //          to send.
         pollfds[1].fd = c->socket_fd;
         pollfds[1].events =
-            POLLIN |
-            (c->HasSomethingToSend() ? POLLOUT : 0) |
-            (c->is_disconnecting ? POLLOUT : 0);
+            (c->is_disconnecting ? 0 : POLLIN) |
+            (c->HasSomethingToSend() ? POLLOUT : 0);
         // our still-alive timer
         pollfds[2].fd = c->our_sa_timer;
         pollfds[2].events = POLLIN;
-        // their keep-alive timer
+        // their not-alive timer
         pollfds[3].fd = c->their_na_timer;
         pollfds[3].events = POLLIN;
-        // push event (it's not handled, we just need poll to return)
+        // push event
         pollfds[4].fd = c->push_event;
         pollfds[4].events = POLLIN;
 
@@ -64,10 +65,6 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
             pollfds,
             sizeof(pollfds) / sizeof(pollfds[0]),
             -1);
-
-        // nothing to send, and disconnecting
-        if (c->is_disconnecting && !c->HasSomethingToSend())
-            break;
 
         // ***************
         // 'to_stop' event
@@ -98,7 +95,7 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // *********************
         if (pollfds[2].revents & POLLIN) {
             Request *keep_alive = new Request("_");
-            c->Push(keep_alive);
+            c->Push(keep_alive, false, 0, false);
 
             // read the value (or else the timer will break)
             uint64_t void_buf;
@@ -125,36 +122,56 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         }
     }
 
+    // lock the reference counter
+    c->mutex_ra.lock();
     // mark as disconnecting
     c->is_disconnecting = true;
+    // still referenced by external code, setup event
+    if (c->GetRefs())
+        c->not_needed_event = eventfd(0, 0);
+    // unlock the reference counter
+    c->mutex_ra.unlock();
 
-    // notify all events if no external references
-    if (c->receive_event != -1) {
-        Utils::WriteEventFd(c->receive_event, 1);
+    // needed by someone
+    if (c->not_needed_event != -1) {
+        // wait until the Connection is not needed anymore
+        Utils::SelectRead(c->not_needed_event, -1);
+
+        // close the event
+        close(c->not_needed_event);
+        c->not_needed_event = -1;
     }
 
-    // close
+    // notify the Pull() callers that the receive is finished
+    if (c->receive_event != -1) {
+        Utils::WriteEventFd(c->receive_event, 1);
+        close(c->receive_event);
+    }
+
+    // close (almost) everything
     shutdown(c->socket_fd, SHUT_RDWR);
     close(c->socket_fd);
     close(c->push_event);
+    close(c->to_stop_event);
     close(c->our_sa_timer);
     close(c->their_na_timer);
-    close(c->to_stop_event);
 
-    // delete
+    // delete buffers
     c->DeleteSendBuffer();
     c->DeleteRecvBuffer();
+    // delete the send queue
     while (c->send_queue.size()) {
         delete c->send_queue.front();
         c->send_queue.pop();
     }
+    // ... but do not delete the receive queue,
+    //     it might be needed after disconnection.
 
     // mark as undefined
     c->socket_type = SocketTypeUndefined;
 
-    // notify about stop (if no external references)
-    if (!c->GetRefs())
-        Utils::WriteEventFd(c->stopped_event, 1);
+    // notify about stop
+    Utils::WriteEventFd(c->stopped_event, 1);
 }
 
 bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
@@ -341,6 +358,14 @@ bool DowowNetwork::Connection::Send() {
             // sent everything
             if (send_buffer_offset == send_buffer_length) {
                 DeleteSendBuffer();
+                // check if disconnecting and no data left
+                if (is_disconnecting &&
+                    !HasSomethingToSend())
+                {
+                    // let the background thread think that
+                    // the connection is dead.
+                    return false;
+                }
             }
         }
     }
@@ -596,31 +621,32 @@ void DowowNetwork::Connection::IncreaseRefs() {
 void DowowNetwork::Connection::DecreaseRefs() {
     mutex_ra.lock();
     refs_amount--;
-    if (is_disconnecting && !refs_amount)
-        Utils::WriteEventFd(stopped_event, 1);
+    // the background thread awaits loneliness ;-(
+    if (not_needed_event != -1)
+        Utils::WriteEventFd(not_needed_event, 1);
     mutex_ra.unlock();
 }
 
 void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {
-    // check if not connected or disconnecting
-    if (!IsConnected()) {
+    // check if not connected or already disconnecting
+    if (!IsConnected() || IsDisconnecting()) {
         return;
     }
 
-    // check if requesting graceful disconnection
-    if (!forced) {
-        // already disconnecting
-        if (IsDisconnecting()) {
-            return;
-        }
+    // mark for disconnection
+    is_disconnecting = true;
 
-        // mark for disconnection
-        is_disconnecting = true;
-        // interrupt the thread
-        Utils::WriteEventFd(push_event, 1);
-    } else {
+    // check if requesting forced disconnection
+    if (forced) {
         // forced
         Utils::WriteEventFd(to_stop_event, 1);
+    } else {
+        // graceful
+        Request *dummy = new Request("_");
+        // push a dummy request so that the
+        // thread will call Send() and
+        // eventually stop
+        Push(dummy, false, 0, false);
     }
 
     // waiting for join

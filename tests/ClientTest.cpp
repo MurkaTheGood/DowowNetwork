@@ -39,7 +39,7 @@ void HandlerPong(Connection *c, Request *r) {
 
     // Create a response.
     Request ping("ping");
-    ping.Emplace<Value32S>("number", number - 2);
+    ping.Emplace<Value32S>("number", number);
 
     // Send the response.
     c->Push(ping);
@@ -71,10 +71,11 @@ int main(int argc, char** argv) {
     // Create a client.
     Client client;
 
+    // TEMPORARILY UNSUPPORTED DUE TO BUGS
     // Make the client execute handlers in separate thread.
     // * That's default behavior but let's leave it here
     // * for demonstration purposes!
-    client.SetHandlersMT(true);
+    // client.SetHandlersMT(true);
 
     // Setup the named handlers.
     client.SetHandlerNamed("pong", HandlerPong);
@@ -111,7 +112,7 @@ int main(int argc, char** argv) {
     // Log.
     cout << "Disconnected. Waiting for a second so all the threads will quit." << endl;
 
-    sleep(1);
+    // sleep(1);
 
     return 0;
 }

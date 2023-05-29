@@ -46,12 +46,12 @@ namespace DowowNetwork {
         /*!
             \return The name assigned to the Request.
         */
-        std::string GetName();
+        std::string GetName() const;
         /// Get the ID of the Request.
         /*!
             \return The ID assigned to the Request.
         */
-        uint32_t GetId();
+        uint32_t GetId() const;
 
         /// Set the Request argument.
         /*!
@@ -141,7 +141,7 @@ namespace DowowNetwork {
                 Never ever delete the elements of that list
                 or the list itself! The originals are returned!
         */
-        std::list<Datum*>& GetArguments();
+        const std::list<Datum*>& GetArguments() const;
 
         /// Serialize the Request to byte stream.
         /*!
@@ -189,7 +189,7 @@ namespace DowowNetwork {
 
             \param original the request to copy.
         */
-        void CopyFrom(Request* original);
+        void CopyFrom(const Request* original);
 
         /// Convert the Request to a string.
         /*!

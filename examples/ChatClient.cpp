@@ -1,5 +1,7 @@
-// This examples shows how to use nonblocking clients
-// ncurses is used as interface
+/*!
+ \file
+ This example shows how the client interface works.
+*/
 
 #include "../Client.hpp"
 #include "../values/All.hpp"
@@ -14,7 +16,9 @@
 using namespace std;
 using namespace DowowNetwork;
 
+// Terminal size
 int rows, cols;
+// History
 std::list<pair<string, string>> history;
 
 // the text that user types in
@@ -23,11 +27,8 @@ string input_field;
 // client to use
 Client client;
 
-// is login?
+// is logging in?
 bool is_login = false;
-
-// server name
-string server_name = "SERVER";
 
 // add a line to the history
 void addToHistory(string from, string text) {
@@ -42,13 +43,15 @@ void addToHistory(string from, string text) {
 
 // redraw input
 void redrawInput() {
+    // go to the screen bottom
     move(rows - 1, 0);
+    // clear the bottom line
     for (int i = 0; i < cols; i++)
         addch(' ');
 
-    // draw the input
+    // draw the input invitation
     mvaddch(rows - 1, 0, '>' | A_BOLD);
-    // draw the input
+    // draw the input field content
     mvprintw(rows - 1, 2, input_field.c_str());
 }
 
@@ -69,72 +72,22 @@ void redrawChat() {
         // string with from name
         string from = "[" + i->first + "]";
         // attribute for bold
-        // attron(A_BOLD);
-        if (from == server_name || from == "CLIENT")
-            attron(COLOR_PAIR(2));
+        attron(A_BOLD);
         // draw the issuer name
         mvaddstr(begin_row, 0, from.c_str());
         // attribute for bold
-        // attroff(A_BOLD);
-        if (from == server_name || from == "CLIENT")
-            attroff(COLOR_PAIR(2));
+        attroff(A_BOLD);
 
         // print the message
         mvaddstr(begin_row, from.size() + 1, i->second.c_str());
 
+        // prev. line
         begin_row--;
     }
 
     // move to input field
     move(rows - 1, 2 + input_field.size());
 }
-
-bool handlerAuthInvite(Connection* conn, Request* req, uint32_t id) {
-    // login mark
-    is_login = true;
-    // the value for server name
-    auto server_name_v = req->Get<ValueStr>("server");
-    // notify
-    addToHistory("CLIENT", "This server requires authorization!");
-    // no server name
-    if (!server_name_v) {
-        addToHistory("CLIENT", "Server name is unknown");
-    } else {
-        server_name = server_name_v->Get();
-        addToHistory("CLIENT", "Server name is " + server_name);
-    }
-    // the text from server
-    auto server_text_v = req->Get<ValueStr>("text");
-    if (server_text_v) {
-        addToHistory(server_name, server_text_v->Get());
-    }
-
-    // redraw chat
-    redrawChat();
-
-    return true;
-}
-
-bool handlerAuthorized(Connection* conn, Request* req, uint32_t id) {
-    // authhorized
-    is_login = false;
-    addToHistory(server_name, "Authorized users: " + to_string(req->Get<Value32U>("users")->Get()));
-    redrawChat();
-    return true;
-}
-
-bool handlerError(Connection* conn, Request* req, uint32_t id) {
-    addToHistory(server_name, "Error: " + req->Get<ValueStr>("text")->Get());
-    redrawChat();
-    return true;
-}
-
-bool handlerMessage(Connection* conn, Request* req, uint32_t id) {
-    addToHistory(req->Get<ValueStr>("from")->Get(), req->Get<ValueStr>("text")->Get());
-    redrawChat();
-    return true;
-}
-
 
 // initialize ncurses
 void ncursesInit() {
@@ -161,38 +114,46 @@ void ncursesInit() {
     refresh();
 }
 
+void HandlerAuth(Connection *c, Request *r) {
+    is_login = true;
+}
+
+void HandlerAuthSuccess(Connection *c, Request *r) {
+    is_login = false;
+}
+
+void HandlerMessage(Connection *c, Request *r) {
+    auto from_v = r->Get<ValueStr>("from");
+    auto to_v = r->Get<ValueStr>("to");
+    auto text_v = r->Get<ValueStr>("text");
+    addToHistory(from_v ? from_v->Get() : "THE WIND", text_v->Get());
+    redrawChat();
+}
+
+void HandlerBye(Connection *c, Request *r) {
+    client.Disconnect(true, false);
+}
+
 int main() {
     // attach handlers
-    client.SetNonblocking(true);
-    client.SetHandlerNamed("auth_invite", handlerAuthInvite);
-    client.SetHandlerNamed("authorized", handlerAuthorized);
-    client.SetHandlerNamed("error", handlerError);
-    client.SetHandlerNamed("message", handlerMessage);
+    client.SetHandlerNamed("auth", HandlerAuth);
+    client.SetHandlerNamed("auth_success", HandlerAuthSuccess);
+    client.SetHandlerNamed("message", HandlerMessage);
+    // TODO: client.SetHandlerNamed("status", HandlerStatus);
+    client.SetHandlerNamed("bye", HandlerBye);
 
-    // before connecting
+    // get the ip
+    string ip;
+    cout << "ncurses + DowowNetwork CHAT" << endl;
     while (!client.IsConnected()) {
-        std::string temp;
-        std::string ip;
-        uint16_t port;
         cout << "Server IP: ";
         cout.flush();
-        getline(cin, ip);
-        cout << "Server Port: ";
-        getline(cin, temp);
-        port = atoi(temp.c_str());
-
-        // try to connect
-        bool res = client.ConnectTcp(ip, port);
-        if (!res) {
-            cout << "Couldn't connect to " << ip << ":" << port << endl;
-        } else {
-            cout << "Connecting..." << endl;
-            while (client.IsConnecting()) {
-                client.Poll();
-            }
+        cin >> ip;
+        cout << "Trying to connect to " << ip << ":29000..." << endl;
+        if (!client.ConnectTcp(ip, 29000)) {
+            cout << "Couldn't connect to the server on " << ip << ", try again" << endl;
         }
     }
-
 
     ncursesInit();
 
@@ -201,9 +162,6 @@ int main() {
     refresh();
 
     while (client.IsConnected()) {
-        // poll the client
-        client.Poll();
-
         // try to read the input
         int input_ch = getch();
 
@@ -224,23 +182,11 @@ int main() {
                 // enter
                 else if (input_ch == 10) {
                     if (!is_login) {
-                        if (input_field == "/help") {
-                            addToHistory("CLIENT", "/bye - disconnect");
-                            addToHistory("CLIENT", "/help - show these messages");
-                            addToHistory("CLIENT", "/users - show connected users");
-                        } else if (input_field == "/bye") {
-                            Request bye_request("bye");
-                            client.Push(bye_request);
-                        } else if (input_field == "/users") {
-                            Request users_request("users");
-                            client.Push(users_request);
-                        } else {
-                            Request send_request("send");
-                            send_request.Emplace<ValueStr>("text", input_field);
-                            client.Push(send_request);
-                        }
+                        Request send_request("message");
+                        send_request.Emplace<ValueStr>("text", input_field);
+                        client.Push(send_request);
                     } else {
-                        Request login_request("login");
+                        Request login_request("auth");
                         login_request.Emplace<ValueStr>("username", input_field);
                         client.Push(login_request);
                     }
@@ -255,6 +201,11 @@ int main() {
     }
 
     endwin();
+
+    // wait for disconnection
+    client.WaitForStop(-1);
+    
+    cout << "Disconnected" << endl;
 
     return 0;
 }

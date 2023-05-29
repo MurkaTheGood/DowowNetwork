@@ -1,0 +1,21 @@
+Server -> Client:
+* auth()
+    An invitation to authorize.
+* auth_success()
+    Successful authorization.
+* message(from: str|None, to: str|None, text: str)
+    The message from "from" to "to" arrived. Its content is "text". If "from" is not set, then
+    the issuer is server.
+* status(username: str, amount: uint32_t, them: array[str])
+* bye()
+    The server has disconnected you.
+
+Client -> Server:
+* auth(username: str)
+    Authorize. Name 'SERVER' is reserved and can not be used.
+* message(to: str|None, text: str)
+    Send a message to user "to".
+* status()
+    Get the server status.
+* bye()
+    Disconnect.

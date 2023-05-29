@@ -136,9 +136,14 @@ void DowowNetwork::Server::ServerThreadFunc(Server *s) {
     // lock
     std::lock_guard<typeof(s->mutex_server)> __sm(s->mutex_server);
 
+    // force open connections to close
     // make all the open connections close
-    for (auto c : s->connections)
+    for (auto c : s->connections) {
+        c->Disconnect(true);
+        c->WaitForStop(-1);
         delete c;
+    }
+    s->connections.clear();
 
     // close the server socket
     close(s->socket_fd);

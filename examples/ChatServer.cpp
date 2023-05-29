@@ -1,12 +1,8 @@
-// This examples shows how to use nonblocking server, nonblocking connections
-// and handlers
-
 #include "../Server.hpp"
 #include "../values/All.hpp"
 
 #include <algorithm>
 #include <list>
-#include <atomic>
 #include <iostream>
 
 using namespace std;
@@ -15,7 +11,7 @@ using namespace DowowNetwork;
 // Structure for a chat user.
 struct Participant {
     // the nickname
-    std::string nickname;
+    std::string username;
     // amount of sent message
     uint32_t messages_sent;
 
@@ -25,264 +21,202 @@ struct Participant {
 
 // List of all chat participants.
 list<Participant> participants;
-
+// The server in use.
 Server server;
 
+Participant* GetParticipant(string username) {
+    auto it = find_if(
+            participants.begin(),
+            participants.end(),
+            [&](auto& a){ return a.username == username; });
+    if (it != participants.end())
+        return &(*it);
+    return 0;
+}
+
+Participant* GetParticipant(uint32_t id) {
+    auto it = find_if(
+            participants.begin(),
+            participants.end(),
+            [&](auto& a){ return a.id == id; });
+    if (it != participants.end())
+        return &(*it);
+    return 0;
+}
+
+// Generate a Request for a message.
+Request GenerateMessage(string from, string to, string text) {
+    Request r("message");
+    if (from.size())
+        r.Emplace<ValueStr>("from", from);
+    if (to.size())
+        r.Emplace<ValueStr>("to", to);
+    r.Emplace<ValueStr>("text", text);
+    return r;
+}
+
+// Generate a Request for status.
+Request GenerateStatus(uint32_t id) {
+    auto issuer = GetParticipant(id);
+    Request r("status");
+    r.Emplace<ValueStr>("username", issuer->username);
+    r.Emplace<Value32U>("amount", participants.size());
+    auto them_v = new ValueArr();
+    them_v->New(participants.size());
+    for (auto p : participants) {
+        ValueStr vs = p.username;
+        them_v->Push(&vs);
+    }
+    r.Set("them", them_v, false);
+    return r;
+}
+
+// Issue a message.
 void IssueMessage(string from, string to, string text) {
-    cout << "[" << from << " -> " << (to.empty() ? string("EVERYONE") : to) << "]: " << text << endl;
-    // prepare the request
-    Request req("message");
-    req.Emplace<ValueStr>("from", from);
-    req.Emplace<ValueStr>("text", text);
-    // send to everyone
     if (to.empty()) {
-        for (auto i : participants) {
-            // get a specific connection
+        cout << "[" << from << "] " << text << endl;
+        // Send to everyone.
+        for (auto i: participants) {
+            // Get the associated connection
+            // Beware: the type is not Connection*, but SafeConnection*.
             auto c = server.GetConnection(i.id);
+            // this participant has been disconnected
+            if (!c) continue;
+            // issue
+            (*c)().Push(GenerateMessage(from, i.username, text));
 
-            // send
-            (*c)()->Push(req);
-
-            // delete
             delete c;
         }
     } else {
-        auto i = find_if(
-            participants.begin(),
-            participants.end(),
-            [&](Participant &p) {
-                return p->username == to;
-            });
-        
-        if (i != participants.end()) {
-            req.Emplace<ValueStr>("to", to);
+        cout << "[" << from << " -> " + to + "] " << text << endl;
+        // look for participant
+        auto p = GetParticipant(to);
+        // not found
+        if (!p) return;
 
-            // get a specific connection
-            auto c = server.GetConnection(i->id);
+        // get connection
+        SafeConnection *c = server.GetConnection(p->id);
+        // not found
+        if (!c) return;
 
-            // send
-            (*c)()->Push(req);
+        (*c)().Push(GenerateMessage(from, to, p->username));
 
-            // delete
-            delete c;
-        }
+        delete c;
     }
 }
 
-Request GenerateErrorResponse(string text) {
-    Request res = new Request("error");
-    res->Emplace<ValueStr>("text", text);
-    return res;
-}
-
-
-bool HandlerDefault(Connection *conn, Request *req, uint32_t id) {
-    // log the invalid request
-    cout << "Invalid request received:" << endl;
-    cout << req->ToString() << endl;
-
-    // invalid request - kill connection
-    conn->Push(
-        GenerateErrorResponse("Invalid request, closing connection"),
-        false);
-    conn->Disconnect();
-
-    return true;
-}
-
-bool HandlerLogin(Connection *conn, Request *req, uint32_t id) {
-    // check if already logged in
-    SessionData *s_data = conn->GetSessionData<SessionData>();
-    if (s_data->state != ClientStateLogin) {
-        conn->Push(
-            GenerateErrorResponse("you are already logged in"),
-            false);
-        return true;
-    }
-    // get some arg values
-    auto username_v = req->Get<ValueStr>("username");
-
-    // check if have args
+void HandlerAuth(Connection *c, Request *r) {
+    auto username_v = r->Get<ValueStr>("username");
     if (!username_v) {
-        conn->Push(
-            GenerateErrorResponse("no username"),
-            false);
-        return true;
+        c->Push(GenerateMessage("SERVER", "", "No username specified"));
+        return;
     }
-
-    // get the args
     string username = username_v->Get();
-
-    // check args
-    if (username.size() < 2 || username.size() > 32) {
-        conn->Push(
-            GenerateErrorResponse("username size lies in range [2; 32]"),
-            false);
-        return true;
+    if (username.size() < 2 || username.size() > 16) {
+        c->Push(GenerateMessage("SERVER", "", "Username must be at least 2 and at most 16 symbols long"));
+        return;
     }
-
+    if (GetParticipant(username)) {
+        c->Push(GenerateMessage("SERVER", "", "This username is already taken"));
+        return;
+    }
     // authorize
-    s_data->state = ClientStateOnline;
-    s_data->username = username;
-
-    // send ok
-    Request ok("authorized");
-    ok.Emplace<Value32U>("users", connections.size());
-    ok.Emplace<ValueStr>("server", server_name);
-    ok.SetId(id);
-    conn->Push(ok);
-
-    // message
-    IssueMessage(server_name, "", "Let's welcome " + username + " to our server!");
-
-    return true;
+    Participant p;
+    p.id = c->id;
+    p.username = username;
+    participants.push_back(p);
+    c->Push(Request("auth_success"));
+    IssueMessage(
+            "SERVER",
+            "",
+            "Let's welcome " + username + " to our server! "
+            "People online: " + to_string(participants.size()));
+    IssueMessage(
+            "SERVER",
+            username,
+            "Send '/help' to the global chat to get help about commands");
 }
 
-bool HandlerSend(Connection* conn, Request* req, uint32_t id) {
-    // check if not logged in
-    SessionData *s_data = conn->GetSessionData<SessionData>();
-    if (s_data->state != ClientStateOnline) {
-        conn->Push(
-            GenerateErrorResponse("you must authorize before sending messages"),
-            false);
-        return true;
+void HandlerMessage(Connection *c, Request *r) {
+    auto p = GetParticipant(c->id);
+    if (!p) {
+        c->Push(GenerateMessage("SERVER", "", "You are not authorized"));
+        return;
     }
-    
-    // get the args
-    ValueStr* to_v = req->Get<ValueStr>("to");
-    ValueStr* text_v = req->Get<ValueStr>("text");
 
+    auto to_v = r->Get<ValueStr>("to");
+    auto text_v = r->Get<ValueStr>("text");
     if (!text_v) {
-        conn->Push(
-            GenerateErrorResponse("no text specified"),
-            false);
-        return true;
+        c->Push(GenerateMessage("SERVER", p->username, "No text is specified"));
+        return;
     }
 
-    // get the values
-    string to = "";
+    string to = to_v ? to_v->Get() : string();
     string text = text_v->Get();
-    if (to_v) to = to_v->Get();
 
-    // check if text is too short
-    if (text.size() < 1) {
-        conn->Push(
-            GenerateErrorResponse("the text is too short"),
-            false);
-        return true;
-    }
-
-    // send
-    IssueMessage(s_data->username, to, text);
-
-    return true;
+    IssueMessage(p->username, to, text);
 }
 
-bool HandlerBye(Connection* conn, Request* req, uint32_t id) {
-    // response
-    Request response("bye");
-    conn->Push(response);
-    conn->Disconnect();
-
-    SessionData *s_data = conn->GetSessionData<SessionData>();
-
-    // send
-    if (s_data) {
-        IssueMessage(s_data->username, "", "I'm leaving y'all, bye!");
-        IssueMessage(server_name, "", "See you later, " + s_data->username + "!");
-    }
-    return true;
-}
-
-void NewConnection(Server* server, Connection* conn) {
-    // generate session data
-    SessionData* s_data = new SessionData();
-    // assign the session data
-    conn->SetSessionData(s_data);
-
-    // send the auth request
-    Request auth_req("auth_invite");
-    auth_req.Emplace<ValueStr>("text", "Please authorize");
-    auth_req.Emplace<ValueStr>("server", server_name);
-    conn->Push(auth_req);
-
-    // setup some handlers
-    conn->SetHandlerDefault(HandlerDefault);
-    conn->SetHandlerNamed("login", HandlerLogin);
-    conn->SetHandlerNamed("send", HandlerSend);
-    conn->SetHandlerNamed("bye", HandlerBye);
-}
-
-// start the server
-void StartServer() {
-    // used for input
-    string temp;
-
-    while (true) {
-        // server data
-        string ip;
-        uint16_t port;
-
-        // ip input
-        cout << "IP to use: ";
-        cout.flush();
-        getline(cin, ip);
-        // port input
-        cout << "Port to use: ";
-        cout.flush();
-        getline(cin, temp);
-        // server name input
-        cout << "How to call the server: ";
-        cout.flush();
-        getline(cin, server_name);
-
-        port = std::atoi(temp.c_str());
-
-        if (!server.StartTcp(ip, port)) {
-            cout << "Failed to start the server on " << ip << ":" << port << "! Try again." << endl;
-        } else {
-            cout << "Started the server, waiting for connections..." << endl;
-            break;
-        }
+void HandlerStatus(Connection *c, Request *r) {
+    auto p = GetParticipant(c->id);
+    if (!p) {
+        c->Push(GenerateMessage("SERVER", "", "You are not authorized"));
+        return;
     }
 
-    // make the server nonblocking
-    server.SetNonblocking(true);
+    c->Push(GenerateStatus(c->id));
+}
 
-    // attach the new connection handler
-    server.SetNewConnectionHandler(NewConnection);
+void HandlerBye(Connection *c, Request *r) {
+    c->Disconnect(true, false);
+}
+
+void HandlerConnected(Server *s, Connection *c) {
+    // Connect handlers
+    c->SetHandlerNamed("auth", HandlerAuth);
+    c->SetHandlerNamed("message", HandlerMessage);
+    c->SetHandlerNamed("status", HandlerStatus);
+    c->SetHandlerNamed("bye", HandlerBye);
+    // Authorization invitation.
+    Request r("auth");
+    c->Push(r);
+    // Text.
+    c->Push(GenerateMessage(
+                 "SERVER",
+                 "",
+                 "Please authorize. We can not transfer any "
+                 "messages unless we know your username."));
+}
+
+void HandlerDisconnected(Server *s, Connection *c) {
+    // Find the participant
+    Participant *p = GetParticipant(c->id);
+    if (!p) return;
+
+    // Log
+    IssueMessage("SERVER", "", "Cya, " + p->username);
+
+    // Remove from participants
+    participants.remove_if([&](auto p) { return c->id == p.id; });
 }
 
 int main() {
-    StartServer();
-
-    std::list<Connection*> connections_to_delete;
-    while (true) {
-        // accept new clients
-        server.Accept(connections);
-
-        // poll clients
-        for (auto i : connections) {
-            // poll
-            i->Poll();
-            // delete unhandled requests
-            delete i->Pull();
-
-            // check if disconnected
-            if (!i->IsConnected()) {
-                cout << "Disconnected" << endl;
-                connections_to_delete.push_back(i);
-            }
-        }
-
-        // delete disconnected
-        for (auto i : connections_to_delete) {
-            delete i->GetSessionData<SessionData>();
-            delete i;
-            connections.remove(i);
-            cout << "Deleted, " << connections.size() << endl;
-        }
-        connections_to_delete.clear();
+    // Setup the handler for new connections
+    server.SetConnectedHandler(HandlerConnected);
+    server.SetDisconnectedHandler(HandlerDisconnected);
+    // Try to start the server.
+    if (!server.StartTcp("0.0.0.0", 29000)) {
+        // Failed to start the server.
+        cout << "Failed to start the chat server on 0.0.0.0:29000" << endl;
+        return 1;
     }
+    // Log.
+    cout << "The server is running on 0.0.0.0:29000" << endl;
+
+    // Wait for server stop.
+    server.WaitForStop(-1);
+
+    // Log.
+    cout << "The server is stopped" << endl;
     return 0;
 }

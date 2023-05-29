@@ -120,7 +120,6 @@ bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port, int timeout
     if (IsConnected() || IsConnecting())
         return false;
 
-cout << "A" << endl;
     // temp socket fd
     temp_socket_fd =
         socket(AF_INET, SOCK_STREAM, 0);
@@ -128,23 +127,19 @@ cout << "A" << endl;
     // failed to create the temp socket
     if (temp_socket_fd == -1)
         return false;
-cout << "A" << endl;
 
     // make socket nonblocking
     int nb_state = 1;
     fcntl(temp_socket_fd, F_SETFL, nb_state);
-cout << "A" << endl;
 
     // create event
     connect_event = eventfd(0, 0);
-cout << "A" << endl;
 
     std::thread t(TcpThreadFunc, this, ip, port, timeout);
     t.detach();
 
     // read
     Utils::ReadEventFd(connect_event, -1);
-cout << "O" << endl;
 
     // close event
     close(connect_event);

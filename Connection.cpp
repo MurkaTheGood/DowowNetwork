@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
+#include <ctime>
+#include <unistd.h>
 
 #include "Utils.hpp"
 
@@ -163,12 +165,7 @@ bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
     auto h = GetHandlerNamed(r->GetName());
     // try to handle
     if (h) {
-        if (mt_handlers) {
-            std::thread t(*h, this, r);
-            t.detach();
-        } else {
-            (*h)(this, r);
-        }
+        (*h)(this, r);
         return true;
     }
 
@@ -177,12 +174,7 @@ bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {
 
     // couldn't handle using named handler, using default
     if (h) {
-        if (mt_handlers) {
-            std::thread t(*h, this, r);
-            t.detach();
-        } else {
-            (*h)(this, r);
-        }
+        (*h)(this, r);
         return true;
     }
     
@@ -524,9 +516,12 @@ DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_co
     return 0;
 }
 
-DowowNetwork::Request* DowowNetwork::Connection::Push(Request& req, int timeout, bool change_request_id) {
+DowowNetwork::Request* DowowNetwork::Connection::Push(const Request& req, int timeout, bool change_request_id) {
+    // copy
+    Request *copy = new Request();
+    copy->CopyFrom(&req);
     // reuse code
-    return Push(&req, true, timeout, change_request_id);
+    return Push(copy, false, timeout, change_request_id);
 }
 
 DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {
@@ -688,14 +683,6 @@ DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerNamed(std::stri
     
     // is set
     return it->second;
-}
-
-void DowowNetwork::Connection::SetHandlersMT(bool state) {
-    mt_handlers = state;
-}
-
-bool DowowNetwork::Connection::GetHandlersMT() {
-    return mt_handlers;
 }
 
 void DowowNetwork::Connection::SetSendBlockSize(uint32_t bs) {

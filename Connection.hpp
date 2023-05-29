@@ -112,9 +112,6 @@ namespace DowowNetwork {
         /// The map of the pointers to the named request handlers.
         std::map<std::string, RequestHandler> handlers_named;
 
-        /// Whether should create a new thread for each handler instance.
-        bool mt_handlers = true;
-
         /// Push() event
         int push_event = -1;
         /// 'to_stop' event
@@ -193,7 +190,7 @@ namespace DowowNetwork {
         /// MT-Safe
         Request* Push(Request* request, bool to_copy = true, int timeout = 0, bool change_request_id = true);
         /// MT-Safe
-        Request* Push(Request& req, int timeout = 0, bool change_request_id = true);
+        Request* Push(const Request& req, int timeout = 0, bool change_request_id = true);
 
         /// MT-Safe
         Request* Pull(int timeout = 0);
@@ -221,9 +218,6 @@ namespace DowowNetwork {
 
         void SetHandlerNamed(std::string name, RequestHandler h);
         RequestHandler GetHandlerNamed(std::string name);
-
-        void SetHandlersMT(bool state);
-        bool GetHandlersMT();
 
         void SetSendBlockSize(uint32_t bs);
         uint32_t GetSendBlockSize();

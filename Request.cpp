@@ -17,11 +17,11 @@ void DowowNetwork::Request::SetId(uint32_t id) {
     this->id = id;
 }
 
-std::string DowowNetwork::Request::GetName() {
+std::string DowowNetwork::Request::GetName() const {
     return name;
 }
 
-uint32_t DowowNetwork::Request::GetId() {
+uint32_t DowowNetwork::Request::GetId() const {
     return id;
 }
 
@@ -60,7 +60,7 @@ DowowNetwork::Value* DowowNetwork::Request::Get(std::string name) {
     return (*temp_iter)->GetValue();
 }
 
-std::list<DowowNetwork::Datum*>& DowowNetwork::Request::GetArguments() {
+const std::list<DowowNetwork::Datum*>& DowowNetwork::Request::GetArguments() const {
     return arguments;
 }
 
@@ -135,12 +135,12 @@ uint32_t DowowNetwork::Request::GetSize() {
     return sum;
 }
 
-void DowowNetwork::Request::CopyFrom(Request* original) {
+void DowowNetwork::Request::CopyFrom(const Request* original) {
     SetName(original->GetName());
     SetId(original->GetId());
-    auto& original_args = original->GetArguments();
+    const auto& original_args = original->GetArguments();
     // copy the arguments
-    for (auto& d: original_args) {
+    for (const auto& d: original_args) {
         Set(d->GetName(), d->GetValue());
     }
 }

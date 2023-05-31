@@ -23,11 +23,11 @@ uint32_t DowowNetwork::ValueStr::DeserializeInternal(const char* data, uint32_t 
     // delete the buffer
     DeleteBuffer();
 
-    // read the length
-    str_length = le32toh(*reinterpret_cast<const uint32_t*>(data));
-
     // check length
     if (length < sizeof(str_length)) return 0;
+
+    // read the length
+    str_length = le32toh(*reinterpret_cast<const uint32_t*>(data));
 
     // check if wrong length
     if (length != str_length + 4) {

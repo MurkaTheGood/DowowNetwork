@@ -37,6 +37,8 @@ bool DowowNetwork::Connection::HasSomethingToSend() {
 
 void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     while (true) {
+        // lock connected/disconnecting mutex
+        c->mutex_cd.lock();
         // create the fds for poll
         pollfd pollfds[5];
         // add 'to_stop' event
@@ -48,7 +50,7 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         //          to send.
         pollfds[1].fd = c->socket_fd;
         pollfds[1].events =
-            (c->is_disconnecting ? 0 : POLLIN) |
+            (!c->is_disconnecting ? POLLIN : 0) |
             (c->HasSomethingToSend() ? POLLOUT : 0);
         // our still-alive timer
         pollfds[2].fd = c->our_sa_timer;
@@ -59,12 +61,17 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         // push event
         pollfds[4].fd = c->push_event;
         pollfds[4].events = POLLIN;
+        // unlock connected/disconnecting mutex
+        c->mutex_cd.unlock();
 
         // let's poll!
         poll(
             pollfds,
             sizeof(pollfds) / sizeof(pollfds[0]),
             -1);
+
+        // lock connected/disconnecting mutex
+        MTLock(__mcd, c->mutex_cd);
 
         // ***************
         // 'to_stop' event
@@ -122,10 +129,20 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         }
     }
 
-    // lock the reference counter
-    c->mutex_ra.lock();
+    // lock the connected/disconnecting mutex
+    MTLock(__mcd, c->mutex_cd);
+
     // mark as disconnecting
     c->is_disconnecting = true;
+
+    // notify the Pull() callers that the receive is finished
+    if (c->receive_event != -1) {
+        Utils::WriteEventFd(c->receive_event, 1);
+        close(c->receive_event);
+    }
+
+    // lock the reference counter
+    c->mutex_ra.lock();
     // still referenced by external code, setup event
     if (c->GetRefs())
         c->not_needed_event = eventfd(0, 0);
@@ -142,12 +159,6 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
         c->not_needed_event = -1;
     }
 
-    // notify the Pull() callers that the receive is finished
-    if (c->receive_event != -1) {
-        Utils::WriteEventFd(c->receive_event, 1);
-        close(c->receive_event);
-    }
-
     // close (almost) everything
     shutdown(c->socket_fd, SHUT_RDWR);
     close(c->socket_fd);
@@ -160,10 +171,12 @@ void DowowNetwork::Connection::ConnThreadFunc(Connection* c) {
     c->DeleteSendBuffer();
     c->DeleteRecvBuffer();
     // delete the send queue
+    c->mutex_sq.lock();
     while (c->send_queue.size()) {
         delete c->send_queue.front();
         c->send_queue.pop();
     }
+    c->mutex_sq.unlock();
     // ... but do not delete the receive queue,
     //     it might be needed after disconnection.
 
@@ -330,9 +343,13 @@ bool DowowNetwork::Connection::Receive() {
 }
 
 bool DowowNetwork::Connection::Send() {
+    // lock the send queue
+    mutex_sq.lock();
     // pop the send queue if the buffer is empty
     if (!send_buffer && send_queue.size())
         PopSendQueue();
+    // unlock the send queue
+    mutex_sq.unlock();
 
     // check if has data to send
     if (send_buffer) {
@@ -358,6 +375,10 @@ bool DowowNetwork::Connection::Send() {
             // sent everything
             if (send_buffer_offset == send_buffer_length) {
                 DeleteSendBuffer();
+                
+                // lock
+                MTLock(__mcd, mutex_cd);
+
                 // check if disconnecting and no data left
                 if (is_disconnecting &&
                     !HasSomethingToSend())
@@ -403,8 +424,21 @@ bool DowowNetwork::Connection::PopSendQueue() {
 }
 
 void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
+    // lock
+    MTLock(__mcd, mutex_cd);
+    MTLock(__mbt, mutex_bt);
+
     // do nothing if already connected
     if (IsConnected()) return;
+
+    // check if background thread exists
+    if (background_thread) {
+        // just detach it, nothing bad
+        // will happen, because not connected
+        background_thread->detach();
+        // free memory
+        delete background_thread;
+    }
 
     // get the type
     int socket_domain;
@@ -426,12 +460,12 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
             return;
     }
 
+    // reset the stopped event
+    Utils::ReadEventFd(stopped_event, 0);
+
     // initialize the events
     push_event = eventfd(0, 0);
     to_stop_event = eventfd(0, 0);
-
-    // reset the 'stopped' event
-    Utils::ReadEventFd(stopped_event, 0);
 
     // create the timers for keep-alive mechanism
     our_sa_timer = timerfd_create(CLOCK_MONOTONIC, 0);
@@ -448,17 +482,18 @@ void DowowNetwork::Connection::InitializeByFD(int socket_fd) {
     free_request_id = is_even_request_parts ? 2 : 1;
 
     // cleanup receive queue
+    mutex_rq.lock();
     while (recv_queue.size()) {
         delete recv_queue.front();
         recv_queue.pop();
     }
+    mutex_rq.unlock();
 
     // assign the socket
     this->socket_fd = socket_fd;
 
-    // start the polling thread
-    std::thread polling_thread(ConnThreadFunc, this);
-    polling_thread.detach();
+    // create the background thread
+    background_thread = new std::thread(ConnThreadFunc, this);
 }
 
 void DowowNetwork::Connection::SetEvenRequestIdsPart(bool state) {
@@ -500,16 +535,21 @@ time_t DowowNetwork::Connection::GetTheirNaIntervalLimit() {
 }
 
 DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_copy, int timeout, bool change_request_id) {
+    {
+        // lock
+        MTLock(__mcd, mutex_cd);
+
+        // not connected or disconnecting
+        if (!IsConnected() || IsDisconnecting()) {
+            // delete the data if it is not copied
+            if (!must_copy)
+                delete req;
+            return 0;
+        }
+    }
+
     // lock the send queue
     MTLock(__msq, mutex_sq);
-
-    // not connected or disconnecting
-    if (!IsConnected() || IsDisconnecting()) {
-        // delete the data if it is not copied
-        if (!must_copy)
-            delete req;
-        return 0;
-    }
 
     // copy the request if needed
     if (must_copy) {
@@ -628,19 +668,20 @@ void DowowNetwork::Connection::DecreaseRefs() {
 }
 
 void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {
-    // check if not connected or already disconnecting
-    if (!IsConnected() || IsDisconnecting()) {
+    mutex_cd.lock();
+    // check if not connected
+    if (!IsConnected()) {
+        mutex_cd.unlock();
         return;
     }
-
-    // mark for disconnection
-    is_disconnecting = true;
 
     // check if requesting forced disconnection
     if (forced) {
         // forced
         Utils::WriteEventFd(to_stop_event, 1);
-    } else {
+    } else if (!is_disconnecting) {
+        // mark for disconnection
+        is_disconnecting = true;
         // graceful
         Request *dummy = new Request("_");
         // push a dummy request so that the
@@ -648,6 +689,8 @@ void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {
         // eventually stop
         Push(dummy, false, 0, false);
     }
+
+    mutex_cd.unlock();
 
     // waiting for join
     if (wait_for_join)
@@ -673,11 +716,7 @@ int DowowNetwork::Connection::GetStoppedEvent() {
 }
 
 bool DowowNetwork::Connection::WaitForStop(int timeout) {
-    int stop_event = GetStoppedEvent();
-    pollfd pollfds { stop_event, POLLIN, 0 };
-
-    // return true if the connection is closed
-    return poll(&pollfds, 1, timeout) > 0;
+    return Utils::SelectRead(GetStoppedEvent(), timeout);
 }
 
 void DowowNetwork::Connection::SetHandlerDefault(RequestHandler h) {
@@ -743,7 +782,20 @@ uint32_t DowowNetwork::Connection::GetMaxRequestSize() {
 }
 
 DowowNetwork::Connection::~Connection() {
+    // when deleting the connection,
+    // we must disconnect by force
+    // and wait for stop.
     Disconnect(true, true);
 
+    // lock the thread
+    MTLock(__mbt, mutex_bt);
+
+    // join the background thread if it exists
+    if (background_thread) {
+        background_thread->join();
+        delete background_thread;
+    }
+
+    // close the stopped eventfd
     close(stopped_event);
 }

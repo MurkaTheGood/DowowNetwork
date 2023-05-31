@@ -48,6 +48,10 @@ namespace DowowNetwork {
         std::recursive_mutex mutex_fri;
         //! mutex for refs amount
         std::recursive_mutex mutex_ra;
+        //! mutex for 'connected' and 'disconnecting' states
+        std::recursive_mutex mutex_cd;
+        //! mutex for background thread pointer
+        std::recursive_mutex mutex_bt;
 
         //! The ID of the free request.
         uint32_t free_request_id = 1;
@@ -67,7 +71,7 @@ namespace DowowNetwork {
         //! at a time.
         uint32_t send_block_size = 1024;
         //! The send buffer.
-        char* send_buffer = 0;
+        const char* send_buffer = 0;
         //! The length of the send buffer.
         uint32_t send_buffer_length = 0;
         //! The offset of the send buffer.
@@ -123,6 +127,9 @@ namespace DowowNetwork {
 
         //! Amount of links to this connection outside the library.
         uint32_t refs_amount = 0;
+
+        //! Background thread.
+        std::thread *background_thread = 0;
 
         //! Polling thread function.
         /*!

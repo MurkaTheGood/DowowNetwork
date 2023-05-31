@@ -155,7 +155,7 @@ namespace DowowNetwork {
                 Use delete[] operator to delete the returned buffer!
             \sa Deserialize(), GetSize().
         */
-        char* Serialize();
+        const char* Serialize() const;
         /// Deserialize the Request from byte stream.
         /*!
             \param data pointer to the byte stream beginning
@@ -180,7 +180,7 @@ namespace DowowNetwork {
                 The length of the buffer returned by Serialize().
             \sa Serialize(), Deserialize()
         */
-        uint32_t GetSize();
+        uint32_t GetSize() const;
 
         /// Create a deep copy of the Request.
         /*!
@@ -198,7 +198,7 @@ namespace DowowNetwork {
             \return
                 A string representation of the Request.
         */
-        std::string ToString();
+        std::string ToString() const;
 
         /// Request destructor.
         ~Request();

@@ -5,7 +5,7 @@
 
 #include "Request.hpp"
 
-DowowNetwork::Request::Request(std::string name) : name(name) {
+DowowNetwork::Request::Request(std::string name) : name(name), id(0) {
 
 }
 
@@ -64,7 +64,7 @@ const std::list<DowowNetwork::Datum*>& DowowNetwork::Request::GetArguments() con
     return arguments;
 }
 
-char *DowowNetwork::Request::Serialize() {
+const char *DowowNetwork::Request::Serialize() const {
     char *result = new char[GetSize()];
 
     uint32_t ser_total_length = htole32(GetSize());
@@ -129,7 +129,7 @@ uint32_t DowowNetwork::Request::Deserialize(char* data, uint32_t data_size) {
     return i;
 }
 
-uint32_t DowowNetwork::Request::GetSize() {
+uint32_t DowowNetwork::Request::GetSize() const {
     uint32_t sum = 10 + name.size();
     for (auto& arg : arguments) sum += arg->GetSize();
     return sum;
@@ -145,7 +145,7 @@ void DowowNetwork::Request::CopyFrom(const Request* original) {
     }
 }
 
-std::string DowowNetwork::Request::ToString() {
+std::string DowowNetwork::Request::ToString() const {
     std::string result = "Request \"" + name + "\":";
     for (auto& datum : arguments) {
         result += "\n* " + datum->GetName() + " -> " + datum->GetValue()->ToString();

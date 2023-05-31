@@ -52,15 +52,20 @@ void HandlerBye(Connection *c, Request *r) {
     // Delete the request and disconnect. 
     delete r;
 
-    // Create the stop request.
-    Request stop("stop");
-    c->Push(stop);
-    c->Disconnect(false, false);
+    // Log.
+    cout << "'bye' handler invoked" << endl;
+
+    // Create the stop request (if the second test is invoked).
+    if (c->tag == "second") {
+        Request stop("stop");
+        c->Push(stop);
+        c->Disconnect(false, false);
+    }
 }
 
 void HandlerDefault(Connection *c, Request *r) {
     // Log.
-    cout << "Default handler work, received request:" << endl;
+    cout << "Default handler invoked, received request:" << endl;
     cout << r->ToString() << endl;
 
     // Delete the request.
@@ -68,6 +73,30 @@ void HandlerDefault(Connection *c, Request *r) {
 }
 
 int main(int argc, char** argv) {
+    // Arguments.
+    bool stress_test = false;
+    bool valgrind = false;
+    if (argc > 1) {
+        for (int i = 1; i < argc; ++i) {
+            if (string(argv[i]) == "--help" ||
+                string(argv[i]) == "-h" ||
+                string(argv[i]) == "?")
+            {
+                cout << "Use this test to perform basic test of TCP and UNIX connectivity" << endl;
+                cout << "For stress test:" << endl;
+                cout << "    " << argv[0] << " -s" << endl;
+                cout << "For memory analysis of client:" << endl;
+                cout << "    valgrind " << argv[0] << " -v" << endl;
+                return 0;
+            } else if (string(argv[i]) == "-s") {
+                cout << "STRESS TEST" << endl;
+                stress_test = true;
+            } else if (string(argv[i]) == "-v") {
+                cout << "CLIENT MEMORY ANALYSIS (valgrind)" << endl;
+                valgrind = true;
+            }
+        }
+    }
     // Create a client.
     Client client;
 
@@ -86,31 +115,87 @@ int main(int argc, char** argv) {
     // * is found.
     client.SetHandlerDefault(HandlerDefault);
 
-    cout << "Connecting" << endl;
-    // Connect to the server with 30 seconds timeout.
+    // Create an initial request.
+    Request ping("ping");
+    ping.Emplace<Value32S>("number", 0);
+
+    // ****************************************
+    // Testing the forced disconnection feature
+    // ****************************************
+    for (int i = 0; i < (stress_test | valgrind ? 10 : 1); i++) {
+        cout << "[TRANSMISSION-FORCED TEST #" << i << "]" << endl;
+        cout << "Connecting..." << endl;
+        // Connect to the server.
+        if (!client.ConnectTcp("127.0.0.1", 23050, -1)) {
+            cout << "Failed to connect to 127.0.0.1:23050!" << endl;
+            return 1;
+        }
+
+        // Log.
+        cout << "Connected to 127.0.0.1:23050" << endl;
+
+        // Push the initial request to the send queue.
+        // * The request becomes scheduled to be sent
+        // * and will eventually get sent by background
+        // * thread.
+        client.Push(ping);
+
+        // Wait for disconnection.
+        client.WaitForStop(stress_test ? 0 : 1);
+
+        // Check error.
+        if (!client.IsConnected()) {
+            cout << "Connection's lost before it was intended to be so" << endl;
+            return 1;
+        }
+
+        // Forced disconnection.
+        client.Disconnect(true, true);
+
+        // Check error.
+        if (client.IsConnected()) {
+            cout << "Connection isn't lost but it ought to be" << endl;
+            return 1;
+        }
+
+        // Log.
+        cout << "Disconnected" << endl;
+        cout << "[TRANSMISSION-FORCED TEST #" << i << " PASSED]" << endl;
+    }
+
+    // ******************************************
+    // Testing the graceful disconnection feature
+    // ******************************************
+    cout << "[TRANSMISSION-GRACEFUL TEST]" << endl;
+
+    // Log.
+    cout << "Reconnecting..." << endl;
+
+    // Mark the connection with a tag.
+    client.tag = "second";
+    // Connect to the server.
     if (!client.ConnectTcp("127.0.0.1", 23050, -1)) {
-        cout << "Failed to connect to 127.0.0.1:23050" << endl;
+        cout << "Failed to reconnect to 127.0.0.1:23050!" << endl;
         return 1;
     }
 
     // Log.
     cout << "Connected to 127.0.0.1:23050" << endl;
 
-    // Create an initial request.
-    Request ping("ping");
-    ping.Emplace<Value32S>("number", 0);
-
-    // Push the initial request to the send queue.
-    // * The request becomes scheduled to be sent
-    // * and will eventually get sent by background
-    // * thread.
+    // Reuse the initial request.
     client.Push(ping);
 
-    // Wait for disconnection.
+    // Wait for disconnection (indefinitely long this time).
     client.WaitForStop();
+
+    if (client.IsConnected()) {
+        cout << "Connection isn't lost but it ought to be" << endl;
+        return 1;
+    }
 
     // Log.
     cout << "Disconnected" << endl;
+    cout << "[TRANSMISSION-GRACEFUL TEST FINISHED]" << endl;
 
     return 0;
 }

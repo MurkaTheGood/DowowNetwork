@@ -5,7 +5,7 @@
 
 #include "Request.hpp"
 
-DowowNetwork::Request::Request(std::string name) : name(name), id(0) {
+DowowNetwork::Request::Request(std::string name) : name(name) {
 
 }
 

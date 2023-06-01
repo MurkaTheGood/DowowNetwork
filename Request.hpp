@@ -20,7 +20,7 @@ namespace DowowNetwork {
         std::list<Datum*> arguments;
 
         /// The ID of the request.
-        uint32_t id;
+        uint32_t id = 0;
 
         /// The name of the request.
         std::string name;

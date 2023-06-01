@@ -46,7 +46,7 @@ void DowowNetwork::Client::TcpThreadFunc(Client *c, std::string ip, uint16_t por
     // in progress
     if (connect_res == -1 && errno == EINPROGRESS) {
         // wait for result
-        connect_res = !Utils::SelectRead(c->temp_socket_fd, timeout);
+        connect_res = !Utils::SelectWrite(c->temp_socket_fd, timeout);
     }
 
     // fail

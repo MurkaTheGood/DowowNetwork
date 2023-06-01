@@ -33,7 +33,8 @@ void HandlerPong(Connection *c, Request *r) {
 
     // Log.
     cout << "Received 'pong': " << number << ", waiting for a second" << endl;
-    
+   
+    // YOU MAY NEVER SLEEP WHEN NOT USING MULTITHREADED HANDLERS!
     // Sleeping so we can check WaitForStop().
     sleep(1);
 
@@ -140,8 +141,10 @@ int main(int argc, char** argv) {
         // * thread.
         client.Push(ping);
 
+        cout << "AAAAA" << endl;
         // Wait for disconnection.
         client.WaitForStop(stress_test ? 0 : 1);
+        cout << "BBBBB" << endl;
 
         // Check error.
         if (!client.IsConnected()) {

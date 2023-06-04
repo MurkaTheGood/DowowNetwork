@@ -40,18 +40,39 @@ namespace DowowNetwork {
     //! A connection between two endpoints.
     class Connection {
     private:
-        //! mutex for send queue
-        std::recursive_mutex mutex_sq;
-        //! mutex for receive queue
-        std::recursive_mutex mutex_rq;
         //! mutex for free request id
         std::recursive_mutex mutex_fri;
-        //! mutex for refs amount
+        //! mutex for 'is even request parts'
+        std::recursive_mutex mutex_ivrp;
+        //! mutex for 'is_disconnecting'
+        std::recursive_mutex mutex_id;
+        //! mutex for 'send_block_size'
+        std::recursive_mutex mutex_sbs;
+        //! mutex for 'recv_buffer_max_length'
+        std::recursive_mutex mutex_rbml;
+        //! mutex for 'recv_block_size'
+        std::recursive_mutex mutex_rbs;
+        //! mutex for send queue
+        std::recursive_mutex mutex_sq;
+        //! mutex for recv queue
+        std::recursive_mutex mutex_rq;
+        //! mutex for handler_default
+        std::recursive_mutex mutex_hd;
+        //! mutex for handlers_named
+        std::recursive_mutex mutex_hn;
+        //! mutex for our_sa_interval
+        std::recursive_mutex mutex_osai;
+        //! mutex for their_na_interval
+        std::recursive_mutex mutex_tnai;
+        //! mutex for refs_amount
         std::recursive_mutex mutex_ra;
-        //! mutex for 'connected' and 'disconnecting' states
-        std::recursive_mutex mutex_cd;
-        //! mutex for background thread pointer
+        //! mutex for background_thread
         std::recursive_mutex mutex_bt;
+        //! mutex for receive events
+        std::recursive_mutex mutex_re;
+
+        //! Whether the handlers are multithreaded.
+        bool mt_handlers = true;
 
         //! The ID of the free request.
         uint32_t free_request_id = 1;
@@ -64,7 +85,6 @@ namespace DowowNetwork {
         int socket_fd = -1;
 
         //! The socket type.
-        //! SocketTypeUndefined is interpreted as 'not connected'
         uint8_t socket_type = SocketTypeUndefined;
 
         //! The maximum amount of bytes we will attempt to send
@@ -92,13 +112,10 @@ namespace DowowNetwork {
         uint32_t recv_buffer_length = 0;
         //! The receive buffer offset.
         uint32_t recv_buffer_offset = 0;
-        //! The queue of the received requests.
-        std::queue<Request*> recv_queue;
         //! Is receiving the request length right now?
         bool is_recv_length = true;
-
-        //! Session data.
-        void* session_data = 0;
+        //! The queue of the received requests.
+        std::queue<Request*> recv_queue;
 
         //! The pointer to the default request handler.
         RequestHandler handler_default = 0;
@@ -111,8 +128,8 @@ namespace DowowNetwork {
         int to_stop_event = -1;
         //! 'stopped' event
         int stopped_event = -1;
-        //! receive event
-        int receive_event = -1;
+        //! receive events
+        std::list<int> receive_events;
         //! 'not_needed' event
         int not_needed_event = -1;
         //! our still-alive timer
@@ -148,6 +165,9 @@ namespace DowowNetwork {
                 Was the Request processed by some handler?
         */
         bool PassThroughHandlers(Request* req);
+
+        //! Bootstrapper function for MT handler mode.
+        static void HandlerBootstrapper(Connection *c, RequestHandler h, Request *r);
     protected:
         /// This constructor does nothing.
         /*!
@@ -281,22 +301,6 @@ namespace DowowNetwork {
 
         void SetMaxRequestSize(uint32_t size);
         uint32_t GetMaxRequestSize();
-
-        template<class T> void SetSessionData(T* data) {
-            if (!data) {
-                // data is to be reset
-                session_data = 0;
-            } else {
-                // store the data pointer
-                session_data = reinterpret_cast<T*>(data);
-            }
-        }
-
-        template<class T> T* GetSessionData() {
-            // not set
-            if (!session_data) return 0;
-            return reinterpret_cast<T*>(session_data);
-        }
 
         virtual ~Connection();
     };

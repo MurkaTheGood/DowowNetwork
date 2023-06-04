@@ -27,13 +27,10 @@ void HandlerStop(Connection *conn, Request *req) {
     cout << "Received the stop request" << endl;
     // Handling 'stop'.
     server.Stop(0);
-
-    delete req;
 }
 
 void HandlerBye(Connection *conn, Request *req) {
     conn->Disconnect();
-    delete req;
 }
 
 void HandlerPing(Connection *conn, Request *req) {
@@ -57,8 +54,6 @@ void HandlerPing(Connection *conn, Request *req) {
         Request bye("bye");
         conn->Push(bye);
     }
-
-    delete req;
 }
 
 void HandlerConnected(Server *server, Connection *conn) {

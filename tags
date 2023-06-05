@@ -11,9 +11,11 @@
 !_TAG_PROGRAM_VERSION	5.9.0	//
 $(VERBOSE).SILENT	build/Makefile	/^$(VERBOSE).SILENT:$/;"	t
 $(VERBOSE).SILENT	build/examples/Makefile	/^$(VERBOSE).SILENT:$/;"	t
+$(VERBOSE).SILENT	build/tests/InternalConnection/Makefile	/^$(VERBOSE).SILENT:$/;"	t
 $(VERBOSE).SILENT	build/tests/Makefile	/^$(VERBOSE).SILENT:$/;"	t
 $(VERBOSE)MAKESILENT	build/Makefile	/^$(VERBOSE)MAKESILENT = -s$/;"	m
 $(VERBOSE)MAKESILENT	build/examples/Makefile	/^$(VERBOSE)MAKESILENT = -s$/;"	m
+$(VERBOSE)MAKESILENT	build/tests/InternalConnection/Makefile	/^$(VERBOSE)MAKESILENT = -s$/;"	m
 $(VERBOSE)MAKESILENT	build/tests/Makefile	/^$(VERBOSE)MAKESILENT = -s$/;"	m
 %	build/Makefile	/^% : %,v$/;"	t
 %	build/Makefile	/^% : RCS\/%$/;"	t
@@ -25,6 +27,11 @@ $(VERBOSE)MAKESILENT	build/tests/Makefile	/^$(VERBOSE)MAKESILENT = -s$/;"	m
 %	build/examples/Makefile	/^% : RCS\/%,v$/;"	t
 %	build/examples/Makefile	/^% : SCCS\/s.%$/;"	t
 %	build/examples/Makefile	/^% : s.%$/;"	t
+%	build/tests/InternalConnection/Makefile	/^% : %,v$/;"	t
+%	build/tests/InternalConnection/Makefile	/^% : RCS\/%$/;"	t
+%	build/tests/InternalConnection/Makefile	/^% : RCS\/%,v$/;"	t
+%	build/tests/InternalConnection/Makefile	/^% : SCCS\/s.%$/;"	t
+%	build/tests/InternalConnection/Makefile	/^% : s.%$/;"	t
 %	build/tests/Makefile	/^% : %,v$/;"	t
 %	build/tests/Makefile	/^% : RCS\/%$/;"	t
 %	build/tests/Makefile	/^% : RCS\/%,v$/;"	t
@@ -43,10 +50,12 @@ All.hpp	build/Makefile	/^All.hpp: cmake_check_build_system$/;"	t
 All.hpp/fast	build/Makefile	/^All.hpp\/fast:$/;"	t
 BUILD_EXAMPLES	CMakeLists.txt	/^option(BUILD_EXAMPLES "Build examples?")$/;"	D
 BUILD_TESTS	CMakeLists.txt	/^option(BUILD_TESTS "Build tests?" OFF)$/;"	D
+BackgroundFunction	InternalConnection.cpp	/^void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:void
 CMAKE_AR	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_AR "\/usr\/bin\/ar")$/;"	v
 CMAKE_AR	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_AR "\/usr\/bin\/ar")$/;"	v
 CMAKE_BINARY_DIR	build/Makefile	/^CMAKE_BINARY_DIR = \/home\/nikita\/Desktop\/DowowNetwork\/build$/;"	m
 CMAKE_BINARY_DIR	build/examples/Makefile	/^CMAKE_BINARY_DIR = \/home\/nikita\/Desktop\/DowowNetwork\/build$/;"	m
+CMAKE_BINARY_DIR	build/tests/InternalConnection/Makefile	/^CMAKE_BINARY_DIR = \/home\/nikita\/Desktop\/DowowNetwork\/build$/;"	m
 CMAKE_BINARY_DIR	build/tests/Makefile	/^CMAKE_BINARY_DIR = \/home\/nikita\/Desktop\/DowowNetwork\/build$/;"	m
 CMAKE_C11_COMPILE_FEATURES	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_C11_COMPILE_FEATURES "c_std_11;c_static_assert")$/;"	v
 CMAKE_C17_COMPILE_FEATURES	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_C17_COMPILE_FEATURES "c_std_17")$/;"	v
@@ -57,12 +66,14 @@ CMAKE_CL_SHOWINCLUDES_PREFIX	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^  se
 CMAKE_CL_SHOWINCLUDES_PREFIX	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^  set(CMAKE_CL_SHOWINCLUDES_PREFIX "${CMAKE_CXX_CL_SHOWINCLUDES_PREFIX}")$/;"	v
 CMAKE_COMMAND	build/Makefile	/^CMAKE_COMMAND = \/usr\/bin\/cmake$/;"	m
 CMAKE_COMMAND	build/examples/Makefile	/^CMAKE_COMMAND = \/usr\/bin\/cmake$/;"	m
+CMAKE_COMMAND	build/tests/InternalConnection/Makefile	/^CMAKE_COMMAND = \/usr\/bin\/cmake$/;"	m
 CMAKE_COMMAND	build/tests/Makefile	/^CMAKE_COMMAND = \/usr\/bin\/cmake$/;"	m
 CMAKE_COMPILER_IS_GNUCC	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_COMPILER_IS_GNUCC 1)$/;"	v
 CMAKE_COMPILER_IS_GNUCXX	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_COMPILER_IS_GNUCXX 1)$/;"	v
 CMAKE_CROSSCOMPILING	build/CMakeFiles/3.22.1/CMakeSystem.cmake	/^set(CMAKE_CROSSCOMPILING "FALSE")$/;"	v
 CMAKE_CROSSCOMPILING	build/cmake_install.cmake	/^  set(CMAKE_CROSSCOMPILING "FALSE")$/;"	v
 CMAKE_CROSSCOMPILING	build/examples/cmake_install.cmake	/^  set(CMAKE_CROSSCOMPILING "FALSE")$/;"	v
+CMAKE_CROSSCOMPILING	build/tests/InternalConnection/cmake_install.cmake	/^  set(CMAKE_CROSSCOMPILING "FALSE")$/;"	v
 CMAKE_CROSSCOMPILING	build/tests/cmake_install.cmake	/^  set(CMAKE_CROSSCOMPILING "FALSE")$/;"	v
 CMAKE_CXX11_COMPILE_FEATURES	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX11_COMPILE_FEATURES "cxx_std_11;cxx_alias_templates;cxx_alignas;cxx_alignof;cxx_att/;"	v
 CMAKE_CXX14_COMPILE_FEATURES	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX14_COMPILE_FEATURES "cxx_std_14;cxx_aggregate_default_initializers;cxx_attribute_de/;"	v
@@ -95,6 +106,7 @@ CMAKE_CXX_FLAGS	CMakeLists.txt	/^    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g"
 CMAKE_CXX_FLAGS	CMakeLists.txt	/^set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")$/;"	v
 CMAKE_CXX_FLAGS	CMakeLists.txt	/^set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")$/;"	v
 CMAKE_CXX_FLAGS	tests/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g --std=c++11")$/;"	v
+CMAKE_CXX_FLAGS	tests/InternalConnection/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g --std=c++11")$/;"	v
 CMAKE_CXX_IGNORE_EXTENSIONS	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX_IGNORE_EXTENSIONS inl;h;hpp;HPP;H;o;O;obj;OBJ;def;DEF;rc;RC)$/;"	v
 CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES "\/usr\/include\/c++\/11;\/usr\/include\/x86_64-linux/;"	v
 CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "\/usr\/lib\/gcc\/x86_64-linux-gnu\/11;\/usr\/lib\/x86_6/;"	v
@@ -103,9 +115,11 @@ CMAKE_CXX_IMPLICIT_LINK_LIBRARIES	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake
 CMAKE_CXX_INCLUDE_REGEX_COMPLAIN	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_COMPLAIN ${CMAKE_C_INCLUDE_REGEX_COMPLAIN})$/;"	v
 CMAKE_CXX_INCLUDE_REGEX_COMPLAIN	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_COMPLAIN ${CMAKE_C_INCLUDE_REGEX_COMPLAIN})$/;"	v
 CMAKE_CXX_INCLUDE_REGEX_COMPLAIN	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_COMPLAIN ${CMAKE_C_INCLUDE_REGEX_COMPLAIN})$/;"	v
+CMAKE_CXX_INCLUDE_REGEX_COMPLAIN	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_COMPLAIN ${CMAKE_C_INCLUDE_REGEX_COMPLAIN})$/;"	v
 CMAKE_CXX_INCLUDE_REGEX_SCAN	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_SCAN ${CMAKE_C_INCLUDE_REGEX_SCAN})$/;"	v
 CMAKE_CXX_INCLUDE_REGEX_SCAN	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_SCAN ${CMAKE_C_INCLUDE_REGEX_SCAN})$/;"	v
 CMAKE_CXX_INCLUDE_REGEX_SCAN	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_SCAN ${CMAKE_C_INCLUDE_REGEX_SCAN})$/;"	v
+CMAKE_CXX_INCLUDE_REGEX_SCAN	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_CXX_INCLUDE_REGEX_SCAN ${CMAKE_C_INCLUDE_REGEX_SCAN})$/;"	v
 CMAKE_CXX_LIBRARY_ARCHITECTURE	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX_LIBRARY_ARCHITECTURE "x86_64-linux-gnu")$/;"	v
 CMAKE_CXX_LINKER_PREFERENCE	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX_LINKER_PREFERENCE 30)$/;"	v
 CMAKE_CXX_LINKER_PREFERENCE_PROPAGATES	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_CXX_LINKER_PREFERENCE_PROPAGATES 1)$/;"	v
@@ -143,9 +157,11 @@ CMAKE_C_IMPLICIT_LINK_LIBRARIES	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^s
 CMAKE_C_INCLUDE_REGEX_COMPLAIN	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_COMPLAIN "^$")$/;"	v
 CMAKE_C_INCLUDE_REGEX_COMPLAIN	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_COMPLAIN "^$")$/;"	v
 CMAKE_C_INCLUDE_REGEX_COMPLAIN	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_COMPLAIN "^$")$/;"	v
+CMAKE_C_INCLUDE_REGEX_COMPLAIN	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_COMPLAIN "^$")$/;"	v
 CMAKE_C_INCLUDE_REGEX_SCAN	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_SCAN "^.*$")$/;"	v
 CMAKE_C_INCLUDE_REGEX_SCAN	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_SCAN "^.*$")$/;"	v
 CMAKE_C_INCLUDE_REGEX_SCAN	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_SCAN "^.*$")$/;"	v
+CMAKE_C_INCLUDE_REGEX_SCAN	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_C_INCLUDE_REGEX_SCAN "^.*$")$/;"	v
 CMAKE_C_LIBRARY_ARCHITECTURE	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_C_LIBRARY_ARCHITECTURE "x86_64-linux-gnu")$/;"	v
 CMAKE_C_LINKER_PREFERENCE	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_C_LINKER_PREFERENCE 10)$/;"	v
 CMAKE_C_PLATFORM_ID	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_C_PLATFORM_ID "Linux")$/;"	v
@@ -189,6 +205,7 @@ CMAKE_DEPENDS_DEPENDENCY_FILES	build/tests/CMakeFiles/NightlySubmit.dir/DependIn
 CMAKE_DEPENDS_DEPENDENCY_FILES	build/tests/CMakeFiles/NightlyTest.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_DEPENDENCY_FILES$/;"	v
 CMAKE_DEPENDS_DEPENDENCY_FILES	build/tests/CMakeFiles/NightlyUpdate.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_DEPENDENCY_FILES$/;"	v
 CMAKE_DEPENDS_DEPENDENCY_FILES	build/tests/CMakeFiles/ServerTest.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_DEPENDENCY_FILES$/;"	v
+CMAKE_DEPENDS_DEPENDENCY_FILES	build/tests/InternalConnection/CMakeFiles/Server.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_DEPENDENCY_FILES$/;"	v
 CMAKE_DEPENDS_GENERATOR	build/CMakeFiles/Makefile.cmake	/^set(CMAKE_DEPENDS_GENERATOR "Unix Makefiles")$/;"	v
 CMAKE_DEPENDS_IN_PROJECT_ONLY	build/CMakeFiles/All.hpp.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)$/;"	v
 CMAKE_DEPENDS_IN_PROJECT_ONLY	build/CMakeFiles/DowowNetwork.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)$/;"	v
@@ -225,6 +242,7 @@ CMAKE_DEPENDS_IN_PROJECT_ONLY	build/tests/CMakeFiles/NightlySubmit.dir/DependInf
 CMAKE_DEPENDS_IN_PROJECT_ONLY	build/tests/CMakeFiles/NightlyTest.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)$/;"	v
 CMAKE_DEPENDS_IN_PROJECT_ONLY	build/tests/CMakeFiles/NightlyUpdate.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)$/;"	v
 CMAKE_DEPENDS_IN_PROJECT_ONLY	build/tests/CMakeFiles/ServerTest.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)$/;"	v
+CMAKE_DEPENDS_IN_PROJECT_ONLY	build/tests/InternalConnection/CMakeFiles/Server.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)$/;"	v
 CMAKE_DEPENDS_LANGUAGES	build/CMakeFiles/All.hpp.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
 CMAKE_DEPENDS_LANGUAGES	build/CMakeFiles/DowowNetwork.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
 CMAKE_DEPENDS_LANGUAGES	build/examples/CMakeFiles/ChatClient.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
@@ -260,10 +278,12 @@ CMAKE_DEPENDS_LANGUAGES	build/tests/CMakeFiles/NightlySubmit.dir/DependInfo.cmak
 CMAKE_DEPENDS_LANGUAGES	build/tests/CMakeFiles/NightlyTest.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
 CMAKE_DEPENDS_LANGUAGES	build/tests/CMakeFiles/NightlyUpdate.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
 CMAKE_DEPENDS_LANGUAGES	build/tests/CMakeFiles/ServerTest.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
+CMAKE_DEPENDS_LANGUAGES	build/tests/InternalConnection/CMakeFiles/Server.dir/DependInfo.cmake	/^set(CMAKE_DEPENDS_LANGUAGES$/;"	v
 CMAKE_DEPEND_INFO_FILES	build/CMakeFiles/Makefile.cmake	/^set(CMAKE_DEPEND_INFO_FILES$/;"	v
 CMAKE_FORCE_UNIX_PATHS	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_FORCE_UNIX_PATHS 1)$/;"	v
 CMAKE_FORCE_UNIX_PATHS	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_FORCE_UNIX_PATHS 1)$/;"	v
 CMAKE_FORCE_UNIX_PATHS	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_FORCE_UNIX_PATHS 1)$/;"	v
+CMAKE_FORCE_UNIX_PATHS	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_FORCE_UNIX_PATHS 1)$/;"	v
 CMAKE_Fortran_TARGET_MODULE_DIR	build/CMakeFiles/All.hpp.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
 CMAKE_Fortran_TARGET_MODULE_DIR	build/CMakeFiles/DowowNetwork.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
 CMAKE_Fortran_TARGET_MODULE_DIR	build/examples/CMakeFiles/ChatClient.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
@@ -299,6 +319,7 @@ CMAKE_Fortran_TARGET_MODULE_DIR	build/tests/CMakeFiles/NightlySubmit.dir/DependI
 CMAKE_Fortran_TARGET_MODULE_DIR	build/tests/CMakeFiles/NightlyTest.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
 CMAKE_Fortran_TARGET_MODULE_DIR	build/tests/CMakeFiles/NightlyUpdate.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
 CMAKE_Fortran_TARGET_MODULE_DIR	build/tests/CMakeFiles/ServerTest.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
+CMAKE_Fortran_TARGET_MODULE_DIR	build/tests/InternalConnection/CMakeFiles/Server.dir/DependInfo.cmake	/^set(CMAKE_Fortran_TARGET_MODULE_DIR "")$/;"	v
 CMAKE_HOST_SYSTEM	build/CMakeFiles/3.22.1/CMakeSystem.cmake	/^set(CMAKE_HOST_SYSTEM "Linux-5.15.0-56-generic")$/;"	v
 CMAKE_HOST_SYSTEM_NAME	build/CMakeFiles/3.22.1/CMakeSystem.cmake	/^set(CMAKE_HOST_SYSTEM_NAME "Linux")$/;"	v
 CMAKE_HOST_SYSTEM_PROCESSOR	build/CMakeFiles/3.22.1/CMakeSystem.cmake	/^set(CMAKE_HOST_SYSTEM_PROCESSOR "x86_64")$/;"	v
@@ -307,18 +328,23 @@ CMAKE_INSTALL_COMPONENT	build/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPON
 CMAKE_INSTALL_COMPONENT	build/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT)$/;"	v
 CMAKE_INSTALL_COMPONENT	build/examples/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT "${COMPONENT}")$/;"	v
 CMAKE_INSTALL_COMPONENT	build/examples/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT)$/;"	v
+CMAKE_INSTALL_COMPONENT	build/tests/InternalConnection/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT "${COMPONENT}")$/;"	v
+CMAKE_INSTALL_COMPONENT	build/tests/InternalConnection/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT)$/;"	v
 CMAKE_INSTALL_COMPONENT	build/tests/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT "${COMPONENT}")$/;"	v
 CMAKE_INSTALL_COMPONENT	build/tests/cmake_install.cmake	/^    set(CMAKE_INSTALL_COMPONENT)$/;"	v
 CMAKE_INSTALL_CONFIG_NAME	build/cmake_install.cmake	/^    set(CMAKE_INSTALL_CONFIG_NAME "")$/;"	v
 CMAKE_INSTALL_CONFIG_NAME	build/examples/cmake_install.cmake	/^    set(CMAKE_INSTALL_CONFIG_NAME "")$/;"	v
+CMAKE_INSTALL_CONFIG_NAME	build/tests/InternalConnection/cmake_install.cmake	/^    set(CMAKE_INSTALL_CONFIG_NAME "")$/;"	v
 CMAKE_INSTALL_CONFIG_NAME	build/tests/cmake_install.cmake	/^    set(CMAKE_INSTALL_CONFIG_NAME "")$/;"	v
 CMAKE_INSTALL_MANIFEST	build/cmake_install.cmake	/^  set(CMAKE_INSTALL_MANIFEST "install_manifest.txt")$/;"	v
 CMAKE_INSTALL_MANIFEST	build/cmake_install.cmake	/^  set(CMAKE_INSTALL_MANIFEST "install_manifest_${CMAKE_INSTALL_COMPONENT}.txt")$/;"	v
 CMAKE_INSTALL_PREFIX	build/cmake_install.cmake	/^  set(CMAKE_INSTALL_PREFIX "\/usr\/local")$/;"	v
 CMAKE_INSTALL_PREFIX	build/examples/cmake_install.cmake	/^  set(CMAKE_INSTALL_PREFIX "\/usr\/local")$/;"	v
+CMAKE_INSTALL_PREFIX	build/tests/InternalConnection/cmake_install.cmake	/^  set(CMAKE_INSTALL_PREFIX "\/usr\/local")$/;"	v
 CMAKE_INSTALL_PREFIX	build/tests/cmake_install.cmake	/^  set(CMAKE_INSTALL_PREFIX "\/usr\/local")$/;"	v
 CMAKE_INSTALL_SO_NO_EXE	build/cmake_install.cmake	/^  set(CMAKE_INSTALL_SO_NO_EXE "1")$/;"	v
 CMAKE_INSTALL_SO_NO_EXE	build/examples/cmake_install.cmake	/^  set(CMAKE_INSTALL_SO_NO_EXE "1")$/;"	v
+CMAKE_INSTALL_SO_NO_EXE	build/tests/InternalConnection/cmake_install.cmake	/^  set(CMAKE_INSTALL_SO_NO_EXE "1")$/;"	v
 CMAKE_INSTALL_SO_NO_EXE	build/tests/cmake_install.cmake	/^  set(CMAKE_INSTALL_SO_NO_EXE "1")$/;"	v
 CMAKE_INTERNAL_PLATFORM_ABI	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^  set(CMAKE_INTERNAL_PLATFORM_ABI "${CMAKE_C_COMPILER_ABI}")$/;"	v
 CMAKE_INTERNAL_PLATFORM_ABI	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^  set(CMAKE_INTERNAL_PLATFORM_ABI "${CMAKE_CXX_COMPILER_ABI}")$/;"	v
@@ -333,19 +359,23 @@ CMAKE_MT	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_MT "")$/;"	v
 CMAKE_MT	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_MT "")$/;"	v
 CMAKE_OBJDUMP	build/cmake_install.cmake	/^  set(CMAKE_OBJDUMP "\/usr\/bin\/objdump")$/;"	v
 CMAKE_OBJDUMP	build/examples/cmake_install.cmake	/^  set(CMAKE_OBJDUMP "\/usr\/bin\/objdump")$/;"	v
+CMAKE_OBJDUMP	build/tests/InternalConnection/cmake_install.cmake	/^  set(CMAKE_OBJDUMP "\/usr\/bin\/objdump")$/;"	v
 CMAKE_OBJDUMP	build/tests/cmake_install.cmake	/^  set(CMAKE_OBJDUMP "\/usr\/bin\/objdump")$/;"	v
 CMAKE_RANLIB	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^set(CMAKE_RANLIB "\/usr\/bin\/ranlib")$/;"	v
 CMAKE_RANLIB	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^set(CMAKE_RANLIB "\/usr\/bin\/ranlib")$/;"	v
 CMAKE_RELATIVE_PATH_TOP_BINARY	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_BINARY "\/home\/nikita\/Desktop\/DowowNetwork\/build")$/;"	v
 CMAKE_RELATIVE_PATH_TOP_BINARY	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_BINARY "\/home\/nikita\/Desktop\/DowowNetwork\/build")$/;"	v
 CMAKE_RELATIVE_PATH_TOP_BINARY	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_BINARY "\/home\/nikita\/Desktop\/DowowNetwork\/build")$/;"	v
+CMAKE_RELATIVE_PATH_TOP_BINARY	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_BINARY "\/home\/nikita\/Desktop\/DowowNetwork\/build")$/;"	v
 CMAKE_RELATIVE_PATH_TOP_SOURCE	build/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_SOURCE "\/home\/nikita\/Desktop\/DowowNetwork")$/;"	v
 CMAKE_RELATIVE_PATH_TOP_SOURCE	build/examples/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_SOURCE "\/home\/nikita\/Desktop\/DowowNetwork")$/;"	v
 CMAKE_RELATIVE_PATH_TOP_SOURCE	build/tests/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_SOURCE "\/home\/nikita\/Desktop\/DowowNetwork")$/;"	v
+CMAKE_RELATIVE_PATH_TOP_SOURCE	build/tests/InternalConnection/CMakeFiles/CMakeDirectoryInformation.cmake	/^set(CMAKE_RELATIVE_PATH_TOP_SOURCE "\/home\/nikita\/Desktop\/DowowNetwork")$/;"	v
 CMAKE_SIZEOF_VOID_P	build/CMakeFiles/3.22.1/CMakeCCompiler.cmake	/^  set(CMAKE_SIZEOF_VOID_P "${CMAKE_C_SIZEOF_DATA_PTR}")$/;"	v
 CMAKE_SIZEOF_VOID_P	build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake	/^  set(CMAKE_SIZEOF_VOID_P "${CMAKE_CXX_SIZEOF_DATA_PTR}")$/;"	v
 CMAKE_SOURCE_DIR	build/Makefile	/^CMAKE_SOURCE_DIR = \/home\/nikita\/Desktop\/DowowNetwork$/;"	m
 CMAKE_SOURCE_DIR	build/examples/Makefile	/^CMAKE_SOURCE_DIR = \/home\/nikita\/Desktop\/DowowNetwork$/;"	m
+CMAKE_SOURCE_DIR	build/tests/InternalConnection/Makefile	/^CMAKE_SOURCE_DIR = \/home\/nikita\/Desktop\/DowowNetwork$/;"	m
 CMAKE_SOURCE_DIR	build/tests/Makefile	/^CMAKE_SOURCE_DIR = \/home\/nikita\/Desktop\/DowowNetwork$/;"	m
 CMAKE_SYSTEM	build/CMakeFiles/3.22.1/CMakeSystem.cmake	/^set(CMAKE_SYSTEM "Linux-5.15.0-56-generic")$/;"	v
 CMAKE_SYSTEM_LOADED	build/CMakeFiles/3.22.1/CMakeSystem.cmake	/^set(CMAKE_SYSTEM_LOADED 1)$/;"	v
@@ -387,6 +417,7 @@ CMAKE_TARGET_LINKED_INFO_FILES	build/tests/CMakeFiles/NightlySubmit.dir/DependIn
 CMAKE_TARGET_LINKED_INFO_FILES	build/tests/CMakeFiles/NightlyTest.dir/DependInfo.cmake	/^set(CMAKE_TARGET_LINKED_INFO_FILES$/;"	v
 CMAKE_TARGET_LINKED_INFO_FILES	build/tests/CMakeFiles/NightlyUpdate.dir/DependInfo.cmake	/^set(CMAKE_TARGET_LINKED_INFO_FILES$/;"	v
 CMAKE_TARGET_LINKED_INFO_FILES	build/tests/CMakeFiles/ServerTest.dir/DependInfo.cmake	/^set(CMAKE_TARGET_LINKED_INFO_FILES$/;"	v
+CMAKE_TARGET_LINKED_INFO_FILES	build/tests/InternalConnection/CMakeFiles/Server.dir/DependInfo.cmake	/^set(CMAKE_TARGET_LINKED_INFO_FILES$/;"	v
 COMPILER_ID	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^# define COMPILER_ID /;"	d	file:
 COMPILER_ID	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^# define COMPILER_ID /;"	d	file:
 COMPILER_VERSION	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^#   define COMPILER_VERSION /;"	d	file:
@@ -427,6 +458,8 @@ COMPILER_VERSION_TWEAK	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^
 COMPILER_VERSION_TWEAK	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^# define COMPILER_VERSION_TWEAK /;"	d	file:
 COMPILER_VERSION_TWEAK	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#  define COMPILER_VERSION_TWEAK /;"	d	file:
 COMPILER_VERSION_TWEAK	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^# define COMPILER_VERSION_TWEAK /;"	d	file:
+CONN_OT_INTERVAL	InternalConnection.hpp	/^#define CONN_OT_INTERVAL /;"	d
+CONN_TT_INTERVAL	InternalConnection.hpp	/^#define CONN_TT_INTERVAL /;"	d
 CXX_STD	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#      define CXX_STD /;"	d	file:
 CXX_STD	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#    define CXX_STD /;"	d	file:
 CXX_STD	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#  define CXX_STD /;"	d	file:
@@ -550,9 +583,9 @@ CopyFrom	values/Value8U.cpp	/^void DowowNetwork::Value8U::CopyFrom(Value* origin
 CopyFrom	values/ValueArr.cpp	/^void DowowNetwork::ValueArr::CopyFrom(Value* original_) {$/;"	f	class:DowowNetwork::ValueArr	typeref:typename:void
 CopyFrom	values/ValueStr.cpp	/^void DowowNetwork::ValueStr::CopyFrom(Value* original) {$/;"	f	class:DowowNetwork::ValueStr	typeref:typename:void
 CopyFrom	values/ValueUndefined.cpp	/^void DowowNetwork::ValueUndefined::CopyFrom(Value* original) {$/;"	f	class:DowowNetwork::ValueUndefined	typeref:typename:void
+CreateClient	tests/ClientTest.cpp	/^Client *CreateClient() {$/;"	f	typeref:typename:Client *
 CreateValue	values/CreateValue.hpp	/^    static Value* CreateValue(uint8_t type) {$/;"	f	namespace:DowowNetwork	typeref:typename:Value *
 DEBUG	CMakeLists.txt	/^option(DEBUG "Include debug symbols?" OFF)$/;"	D
-DEBUG_VERBOSE	CMakeLists.txt	/^option(DEBUG_VERBOSE "Print verbose debug messages? Works if DEBUG" OFF)$/;"	D
 DEC	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^#define DEC(/;"	d	file:
 DEC	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#define DEC(/;"	d	file:
 Datum	Datum.cpp	/^DowowNetwork::Datum::Datum() {$/;"	f	class:DowowNetwork::Datum
@@ -583,12 +616,14 @@ DeserializeInternal	values/ValueArr.cpp	/^uint32_t DowowNetwork::ValueArr::Deser
 DeserializeInternal	values/ValueStr.cpp	/^uint32_t DowowNetwork::ValueStr::DeserializeInternal(const char* data, uint32_t length) {$/;"	f	class:DowowNetwork::ValueStr	typeref:typename:uint32_t
 DeserializeInternal	values/ValueUndefined.cpp	/^uint32_t DowowNetwork::ValueUndefined::DeserializeInternal(const char* data, uint32_t length) {$/;"	f	class:DowowNetwork::ValueUndefined	typeref:typename:uint32_t
 Disconnect	Connection.cpp	/^void DowowNetwork::Connection::Disconnect(bool forced, bool wait_for_join) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
+Disconnect	InternalConnection.cpp	/^void DowowNetwork::InternalConnection::Disconnect(bool forced) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:void
 Dowow Networking	README.md	/^# Dowow Networking$/;"	c
 DowowNetwork	CMakeLists.txt	/^add_library(DowowNetwork STATIC ${SOURCES} ${VALUES_SOURCES})$/;"	t
 DowowNetwork	CMakeLists.txt	/^project(DowowNetwork)$/;"	p
 DowowNetwork	Client.hpp	/^namespace DowowNetwork {$/;"	n
 DowowNetwork	Connection.hpp	/^namespace DowowNetwork {$/;"	n
 DowowNetwork	Datum.hpp	/^namespace DowowNetwork {$/;"	n
+DowowNetwork	InternalConnection.hpp	/^namespace DowowNetwork {$/;"	n
 DowowNetwork	Request.hpp	/^namespace DowowNetwork {$/;"	n
 DowowNetwork	SafeConnection.hpp	/^namespace DowowNetwork {$/;"	n
 DowowNetwork	Server.hpp	/^namespace DowowNetwork {$/;"	n
@@ -614,6 +649,7 @@ DowowNetworkExamples	examples/CMakeLists.txt	/^project(DowowNetworkExamples)$/;"
 Doxygen	Style.md	/^# Doxygen$/;"	c
 EQUALS	build/Makefile	/^EQUALS = =$/;"	m
 EQUALS	build/examples/Makefile	/^EQUALS = =$/;"	m
+EQUALS	build/tests/InternalConnection/Makefile	/^EQUALS = =$/;"	m
 EQUALS	build/tests/Makefile	/^EQUALS = =$/;"	m
 Emplace	Request.hpp	/^        template<class T> void Emplace(std::string name, T value) {$/;"	f	class:DowowNetwork::Request	typeref:typename:void
 Experimental	build/Makefile	/^Experimental: cmake_check_build_system$/;"	t
@@ -673,7 +709,9 @@ GetConnection	Server.cpp	/^DowowNetwork::SafeConnection *DowowNetwork::Server::G
 GetCount	values/ValueArr.cpp	/^uint32_t DowowNetwork::ValueArr::GetCount() const {$/;"	f	class:DowowNetwork::ValueArr	typeref:typename:uint32_t
 GetDisconnectedHandler	Server.hpp	/^        inline ConnectionHandler GetDisconnectedHandler() {$/;"	f	class:DowowNetwork::Server	typeref:typename:ConnectionHandler
 GetHandlerDefault	Connection.cpp	/^DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerDefault() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:DowowNetwork::RequestHandler
+GetHandlerDefault	InternalConnection.cpp	/^DowowNetwork::RequestHandler DowowNetwork::InternalConnection::GetHandlerDefault() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:DowowNetwork::RequestHandler
 GetHandlerNamed	Connection.cpp	/^DowowNetwork::RequestHandler DowowNetwork::Connection::GetHandlerNamed(std::string name) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:DowowNetwork::RequestHandler
+GetHandlerNamed	InternalConnection.cpp	/^DowowNetwork::RequestHandler DowowNetwork::InternalConnection::GetHandlerNamed(std::string name)/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:DowowNetwork::RequestHandler
 GetId	Request.cpp	/^uint32_t DowowNetwork::Request::GetId() const {$/;"	f	class:DowowNetwork::Request	typeref:typename:uint32_t
 GetMaxConnections	Server.cpp	/^int32_t DowowNetwork::Server::GetMaxConnections() {$/;"	f	class:DowowNetwork::Server	typeref:typename:int32_t
 GetMaxRequestSize	Connection.cpp	/^uint32_t DowowNetwork::Connection::GetMaxRequestSize() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:uint32_t
@@ -685,7 +723,6 @@ GetParticipant	examples/ChatServer.cpp	/^Participant* GetParticipant(uint32_t id
 GetRecvBlockSize	Connection.cpp	/^uint32_t DowowNetwork::Connection::GetRecvBlockSize() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:uint32_t
 GetRefs	Connection.cpp	/^uint32_t DowowNetwork::Connection::GetRefs() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:uint32_t
 GetSendBlockSize	Connection.cpp	/^uint32_t DowowNetwork::Connection::GetSendBlockSize() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:uint32_t
-GetSessionData	Connection.hpp	/^        template<class T> T* GetSessionData() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:T *
 GetSize	Datum.cpp	/^uint32_t DowowNetwork::Datum::GetSize() {$/;"	f	class:DowowNetwork::Datum	typeref:typename:uint32_t
 GetSize	Request.cpp	/^uint32_t DowowNetwork::Request::GetSize() const {$/;"	f	class:DowowNetwork::Request	typeref:typename:uint32_t
 GetSize	Value.cpp	/^uint32_t DowowNetwork::Value::GetSize() const {$/;"	f	class:DowowNetwork::Value	typeref:typename:uint32_t
@@ -701,6 +738,7 @@ GetSizeInternal	values/ValueArr.cpp	/^uint32_t DowowNetwork::ValueArr::GetSizeIn
 GetSizeInternal	values/ValueStr.cpp	/^uint32_t DowowNetwork::ValueStr::GetSizeInternal() const {$/;"	f	class:DowowNetwork::ValueStr	typeref:typename:uint32_t
 GetSizeInternal	values/ValueUndefined.cpp	/^uint32_t DowowNetwork::ValueUndefined::GetSizeInternal() const {$/;"	f	class:DowowNetwork::ValueUndefined	typeref:typename:uint32_t
 GetStoppedEvent	Connection.cpp	/^int DowowNetwork::Connection::GetStoppedEvent() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:int
+GetStoppedEvent	InternalConnection.cpp	/^int DowowNetwork::InternalConnection::GetStoppedEvent() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:int
 GetTcpIp	Server.cpp	/^uint32_t DowowNetwork::Server::GetTcpIp() {$/;"	f	class:DowowNetwork::Server	typeref:typename:uint32_t
 GetTcpIpString	Server.cpp	/^std::string DowowNetwork::Server::GetTcpIpString() {$/;"	f	class:DowowNetwork::Server	typeref:typename:std::string
 GetTcpPort	Server.cpp	/^uint16_t DowowNetwork::Server::GetTcpPort() {$/;"	f	class:DowowNetwork::Server	typeref:typename:uint16_t
@@ -715,9 +753,12 @@ GetValue	Datum.cpp	/^DowowNetwork::Value* DowowNetwork::Datum::GetValue() {$/;"	
 Global functions, functions in namespace scope and methods	Style.md	/^## Global functions, functions in namespace scope and methods$/;"	s	chapter:Code styling agreements
 HEX	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^#define HEX(/;"	d	file:
 HEX	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#define HEX(/;"	d	file:
+HandleReceived	InternalConnection.cpp	/^void DowowNetwork::InternalConnection::HandleReceived(Request *r) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:void
 HandlerAuth	examples/ChatClient.cpp	/^void HandlerAuth(Connection *c, Request *r) {$/;"	f	typeref:typename:void
 HandlerAuth	examples/ChatServer.cpp	/^void HandlerAuth(Connection *c, Request *r) {$/;"	f	typeref:typename:void
 HandlerAuthSuccess	examples/ChatClient.cpp	/^void HandlerAuthSuccess(Connection *c, Request *r) {$/;"	f	typeref:typename:void
+HandlerBootstapper	InternalConnection.cpp	/^void DowowNetwork::InternalConnection::HandlerBootstapper($/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:void
+HandlerBootstrapper	Connection.cpp	/^void DowowNetwork::Connection::HandlerBootstrapper(Connection *c, RequestHandler h, Request *r) /;"	f	class:DowowNetwork::Connection	typeref:typename:void
 HandlerBye	examples/ChatClient.cpp	/^void HandlerBye(Connection *c, Request *r) {$/;"	f	typeref:typename:void
 HandlerBye	examples/ChatServer.cpp	/^void HandlerBye(Connection *c, Request *r) {$/;"	f	typeref:typename:void
 HandlerBye	tests/ClientTest.cpp	/^void HandlerBye(Connection *c, Request *r) {$/;"	f	typeref:typename:void
@@ -735,12 +776,22 @@ HandlerStatus	examples/ChatServer.cpp	/^void HandlerStatus(Connection *c, Reques
 HandlerStop	tests/ServerTest.cpp	/^void HandlerStop(Connection *conn, Request *req) {$/;"	f	typeref:typename:void
 HandlerThread	tests/DowowConnectionTest.cpp	/^void HandlerThread(DowowConnection* conn) {$/;"	f	typeref:typename:void
 HasSomethingToSend	Connection.cpp	/^bool DowowNetwork::Connection::HasSomethingToSend() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
+HasSomethingToSend	InternalConnection.cpp	/^bool DowowNetwork::InternalConnection::HasSomethingToSend() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:bool
 How to build documentation?	README.md	/^## How to build documentation?$/;"	s	chapter:Dowow Networking
 How to build?	README.md	/^## How to build?$/;"	s	chapter:Dowow Networking
 ID_VOID_MAIN	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^# define ID_VOID_MAIN$/;"	d	file:
 IncreaseRefs	Connection.cpp	/^void DowowNetwork::Connection::IncreaseRefs() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
 InitializeByFD	Connection.cpp	/^void DowowNetwork::Connection::InitializeByFD(int socket_fd) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
+InternalConnection	InternalConnection.cpp	/^DowowNetwork::InternalConnection::InternalConnection(int fd) {$/;"	f	class:DowowNetwork::InternalConnection
+InternalConnection	InternalConnection.hpp	/^    class InternalConnection final {$/;"	c	namespace:DowowNetwork
+InternalConnection.cpp.i	build/Makefile	/^InternalConnection.cpp.i:$/;"	t
+InternalConnection.cpp.o	build/Makefile	/^InternalConnection.cpp.o:$/;"	t
+InternalConnection.cpp.s	build/Makefile	/^InternalConnection.cpp.s:$/;"	t
+InternalConnection.i	build/Makefile	/^InternalConnection.i: InternalConnection.cpp.i$/;"	t
+InternalConnection.o	build/Makefile	/^InternalConnection.o: InternalConnection.cpp.o$/;"	t
+InternalConnection.s	build/Makefile	/^InternalConnection.s: InternalConnection.cpp.s$/;"	t
 IsConnected	Connection.cpp	/^bool DowowNetwork::Connection::IsConnected() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
+IsConnected	InternalConnection.cpp	/^bool DowowNetwork::InternalConnection::IsConnected() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:bool
 IsConnecting	Client.cpp	/^bool DowowNetwork::Client::IsConnecting() {$/;"	f	class:DowowNetwork::Client	typeref:typename:bool
 IsDisconnecting	Connection.cpp	/^bool DowowNetwork::Connection::IsDisconnecting() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
 IssueMessage	examples/ChatServer.cpp	/^void IssueMessage(string from, string to, string text) {$/;"	f	typeref:typename:void
@@ -798,18 +849,23 @@ PRINT_DEBUG	Connection.cpp	/^#define PRINT_DEBUG(/;"	d	file:
 Participant	examples/ChatServer.cpp	/^struct Participant {$/;"	s	file:
 PassThroughHandlers	Connection.cpp	/^bool DowowNetwork::Connection::PassThroughHandlers(Request* r) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
 PopSendQueue	Connection.cpp	/^bool DowowNetwork::Connection::PopSendQueue() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
+PopSendQueue	InternalConnection.cpp	/^bool DowowNetwork::InternalConnection::PopSendQueue() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:bool
 Pull	Connection.cpp	/^DowowNetwork::Request* DowowNetwork::Connection::Pull(int timeout) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:DowowNetwork::Request *
+Pull	InternalConnection.cpp	/^DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:DowowNetwork::Request *
 Pull():	README.md	/^#### Pull():$/;"	t	subsection:Dowow Networking""Quick introduction""Connection:
 Push	Connection.cpp	/^DowowNetwork::Request* DowowNetwork::Connection::Push(Request* req, bool must_copy, int timeout,/;"	f	class:DowowNetwork::Connection	typeref:typename:DowowNetwork::Request *
 Push	Connection.cpp	/^DowowNetwork::Request* DowowNetwork::Connection::Push(const Request& req, int timeout, bool chan/;"	f	class:DowowNetwork::Connection	typeref:typename:DowowNetwork::Request *
+Push	InternalConnection.cpp	/^DowowNetwork::Request *DowowNetwork::InternalConnection::Push($/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:DowowNetwork::Request *
 Push	values/ValueArr.cpp	/^void DowowNetwork::ValueArr::Push(Value* val) {$/;"	f	class:DowowNetwork::ValueArr	typeref:typename:void
 Push():	README.md	/^#### Push():$/;"	t	subsection:Dowow Networking""Quick introduction""Connection:
 Quick introduction	README.md	/^## Quick introduction$/;"	s	chapter:Dowow Networking
 RM	build/Makefile	/^RM = \/usr\/bin\/cmake -E rm -f$/;"	m
 RM	build/examples/Makefile	/^RM = \/usr\/bin\/cmake -E rm -f$/;"	m
+RM	build/tests/InternalConnection/Makefile	/^RM = \/usr\/bin\/cmake -E rm -f$/;"	m
 RM	build/tests/Makefile	/^RM = \/usr\/bin\/cmake -E rm -f$/;"	m
 ReadEventFd	Utils.cpp	/^uint64_t DowowNetwork::Utils::ReadEventFd(int fd, int timeout) {$/;"	f	class:DowowNetwork::Utils	typeref:typename:uint64_t
 Receive	Connection.cpp	/^bool DowowNetwork::Connection::Receive() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
+Recv	InternalConnection.cpp	/^bool DowowNetwork::InternalConnection::Recv() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:bool
 Request	Request.cpp	/^DowowNetwork::Request::Request(std::string name) : name(name) {$/;"	f	class:DowowNetwork::Request
 Request	Request.hpp	/^    class Request {$/;"	c	namespace:DowowNetwork
 Request.cpp.i	build/Makefile	/^Request.cpp.i:$/;"	t
@@ -819,8 +875,10 @@ Request.i	build/Makefile	/^Request.i: Request.cpp.i$/;"	t
 Request.o	build/Makefile	/^Request.o: Request.cpp.o$/;"	t
 Request.s	build/Makefile	/^Request.s: Request.cpp.s$/;"	t
 RequestHandler	Connection.hpp	/^    typedef void (*RequestHandler)(Connection* c, Request* r);$/;"	t	namespace:DowowNetwork	typeref:typename:void (*)(Connection * c,Request * r)
+RequestHandler	InternalConnection.hpp	/^    typedef void (*RequestHandler)(InternalConnection *c, Request* r);$/;"	t	namespace:DowowNetwork	typeref:typename:void (*)(InternalConnection * c,Request * r)
 SHELL	build/Makefile	/^SHELL = \/bin\/sh$/;"	m
 SHELL	build/examples/Makefile	/^SHELL = \/bin\/sh$/;"	m
+SHELL	build/tests/InternalConnection/Makefile	/^SHELL = \/bin\/sh$/;"	m
 SHELL	build/tests/Makefile	/^SHELL = \/bin\/sh$/;"	m
 SIMULATE_ID	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^#  define SIMULATE_ID /;"	d	file:
 SIMULATE_ID	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^# define SIMULATE_ID /;"	d	file:
@@ -848,6 +906,7 @@ SafeConnection	SafeConnection.hpp	/^    class SafeConnection {$/;"	c	namespace:D
 SelectRead	Utils.cpp	/^bool DowowNetwork::Utils::SelectRead(int fd, int seconds) {$/;"	f	class:DowowNetwork::Utils	typeref:typename:bool
 SelectWrite	Utils.cpp	/^bool DowowNetwork::Utils::SelectWrite(int fd, int seconds) {$/;"	f	class:DowowNetwork::Utils	typeref:typename:bool
 Send	Connection.cpp	/^bool DowowNetwork::Connection::Send() {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
+Send	InternalConnection.cpp	/^bool DowowNetwork::InternalConnection::Send() {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:bool
 Serialize	Datum.cpp	/^char* DowowNetwork::Datum::Serialize() {$/;"	f	class:DowowNetwork::Datum	typeref:typename:char *
 Serialize	Request.cpp	/^const char *DowowNetwork::Request::Serialize() const {$/;"	f	class:DowowNetwork::Request	typeref:typename:const char *
 Serialize	Value.cpp	/^const char* DowowNetwork::Value::Serialize() const {$/;"	f	class:DowowNetwork::Value	typeref:typename:const char *
@@ -864,12 +923,23 @@ SerializeInternal	values/ValueStr.cpp	/^const char* DowowNetwork::ValueStr::Seri
 SerializeInternal	values/ValueUndefined.cpp	/^const char* DowowNetwork::ValueUndefined::SerializeInternal() const{$/;"	f	class:DowowNetwork::ValueUndefined	typeref:typename:const char *
 Server	Server.cpp	/^DowowNetwork::Server::Server() {$/;"	f	class:DowowNetwork::Server
 Server	Server.hpp	/^    class Server {$/;"	c	namespace:DowowNetwork
+Server	build/Makefile	/^Server: cmake_check_build_system$/;"	t
+Server	build/tests/InternalConnection/Makefile	/^Server: tests\/InternalConnection\/CMakeFiles\/Server.dir\/rule$/;"	t
+Server	tests/InternalConnection/CMakeLists.txt	/^add_executable(Server Server.cpp)$/;"	t
 Server.cpp.i	build/Makefile	/^Server.cpp.i:$/;"	t
+Server.cpp.i	build/tests/InternalConnection/Makefile	/^Server.cpp.i:$/;"	t
 Server.cpp.o	build/Makefile	/^Server.cpp.o:$/;"	t
+Server.cpp.o	build/tests/InternalConnection/Makefile	/^Server.cpp.o:$/;"	t
 Server.cpp.s	build/Makefile	/^Server.cpp.s:$/;"	t
+Server.cpp.s	build/tests/InternalConnection/Makefile	/^Server.cpp.s:$/;"	t
 Server.i	build/Makefile	/^Server.i: Server.cpp.i$/;"	t
+Server.i	build/tests/InternalConnection/Makefile	/^Server.i: Server.cpp.i$/;"	t
 Server.o	build/Makefile	/^Server.o: Server.cpp.o$/;"	t
+Server.o	build/tests/InternalConnection/Makefile	/^Server.o: Server.cpp.o$/;"	t
 Server.s	build/Makefile	/^Server.s: Server.cpp.s$/;"	t
+Server.s	build/tests/InternalConnection/Makefile	/^Server.s: Server.cpp.s$/;"	t
+Server/fast	build/Makefile	/^Server\/fast:$/;"	t
+Server/fast	build/tests/InternalConnection/Makefile	/^Server\/fast:$/;"	t
 ServerTest	build/Makefile	/^ServerTest: cmake_check_build_system$/;"	t
 ServerTest	build/tests/Makefile	/^ServerTest: tests\/CMakeFiles\/ServerTest.dir\/rule$/;"	t
 ServerTest	tests/CMakeLists.txt	/^add_executable(ServerTest ServerTest.cpp)$/;"	t
@@ -899,7 +969,9 @@ SetConnectedHandler	Server.hpp	/^        inline void SetConnectedHandler(Connect
 SetDisconnectedHandler	Server.hpp	/^        inline void SetDisconnectedHandler(ConnectionHandler handler) {$/;"	f	class:DowowNetwork::Server	typeref:typename:void
 SetEvenRequestIdsPart	Connection.cpp	/^void DowowNetwork::Connection::SetEvenRequestIdsPart(bool state) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
 SetHandlerDefault	Connection.cpp	/^void DowowNetwork::Connection::SetHandlerDefault(RequestHandler h) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
+SetHandlerDefault	InternalConnection.cpp	/^void DowowNetwork::InternalConnection::SetHandlerDefault(RequestHandler h) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:void
 SetHandlerNamed	Connection.cpp	/^void DowowNetwork::Connection::SetHandlerNamed(std::string name, RequestHandler h) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
+SetHandlerNamed	InternalConnection.cpp	/^void DowowNetwork::InternalConnection::SetHandlerNamed(std::string name, RequestHandler h) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:void
 SetId	Request.cpp	/^void DowowNetwork::Request::SetId(uint32_t id) {$/;"	f	class:DowowNetwork::Request	typeref:typename:void
 SetMaxConnections	Server.cpp	/^void DowowNetwork::Server::SetMaxConnections(int32_t c) {$/;"	f	class:DowowNetwork::Server	typeref:typename:void
 SetMaxRequestSize	Connection.cpp	/^void DowowNetwork::Connection::SetMaxRequestSize(uint32_t size) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
@@ -908,10 +980,10 @@ SetName	Request.cpp	/^void DowowNetwork::Request::SetName(std::string name) {$/;
 SetOurSaInterval	Connection.cpp	/^void DowowNetwork::Connection::SetOurSaInterval(time_t interval) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
 SetRecvBlockSize	Connection.cpp	/^void DowowNetwork::Connection::SetRecvBlockSize(uint32_t bs) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
 SetSendBlockSize	Connection.cpp	/^void DowowNetwork::Connection::SetSendBlockSize(uint32_t bs) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
-SetSessionData	Connection.hpp	/^        template<class T> void SetSessionData(T* data) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
 SetTheirNaIntervalLimit	Connection.cpp	/^void DowowNetwork::Connection::SetTheirNaIntervalLimit(time_t interval) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:void
 SetTimerFdTimeout	Utils.cpp	/^void DowowNetwork::Utils::SetTimerFdTimeout(int fd, time_t seconds) {$/;"	f	class:DowowNetwork::Utils	typeref:typename:void
 SetValue	Datum.cpp	/^void DowowNetwork::Datum::SetValue(Value* value, bool to_copy) {$/;"	f	class:DowowNetwork::Datum	typeref:typename:void
+Setup	tests/InternalConnection/Server.cpp	/^void Setup() {$/;"	f	typeref:typename:void
 SocketType	SocketType.hpp	/^    enum SocketType : uint8_t {$/;"	g	namespace:DowowNetwork	typeref:typename:uint8_t
 SocketTypeTcp	SocketType.hpp	/^        SocketTypeTcp = 2           \/\/\/< TCP socket$/;"	e	enum:DowowNetwork::SocketType
 SocketTypeUndefined	SocketType.hpp	/^        SocketTypeUndefined = 0,    \/\/\/< undefined (unset) socket type$/;"	e	enum:DowowNetwork::SocketType
@@ -990,12 +1062,14 @@ ValueUndefined	values/ValueUndefined.cpp	/^DowowNetwork::ValueUndefined::ValueUn
 ValueUndefined	values/ValueUndefined.hpp	/^    class ValueUndefined : public Value {$/;"	c	namespace:DowowNetwork
 Variables, constants, function parameters	Style.md	/^## Variables, constants, function parameters$/;"	s	chapter:Code styling agreements
 WaitForStop	Connection.cpp	/^bool DowowNetwork::Connection::WaitForStop(int timeout) {$/;"	f	class:DowowNetwork::Connection	typeref:typename:bool
+WaitForStop	InternalConnection.cpp	/^bool DowowNetwork::InternalConnection::WaitForStop(int timeout) {$/;"	f	class:DowowNetwork::InternalConnection	typeref:typename:bool
 WaitForStop	Server.cpp	/^void DowowNetwork::Server::WaitForStop(int timeout) {$/;"	f	class:DowowNetwork::Server	typeref:typename:void
 WriteEventFd	Utils.cpp	/^void DowowNetwork::Utils::WriteEventFd(int fd, uint64_t num) {$/;"	f	class:DowowNetwork::Utils	typeref:typename:void
 __DOWOW_NETWORK__CLIENT_H_	Client.hpp	/^#define __DOWOW_NETWORK__CLIENT_H_$/;"	d
 __DOWOW_NETWORK__CONNECTION_H_	Connection.hpp	/^#define __DOWOW_NETWORK__CONNECTION_H_$/;"	d
 __DOWOW_NETWORK__CREATE_VALUE_	values/CreateValue.hpp	/^#define __DOWOW_NETWORK__CREATE_VALUE_$/;"	d
 __DOWOW_NETWORK__DATUM_	Datum.hpp	/^#define __DOWOW_NETWORK__DATUM_$/;"	d
+__DOWOW_NETWORK__INTERNAL_CONNECTION_H_	InternalConnection.hpp	/^#define __DOWOW_NETWORK__INTERNAL_CONNECTION_H_$/;"	d
 __DOWOW_NETWORK__REQUEST_H_	Request.hpp	/^#define __DOWOW_NETWORK__REQUEST_H_$/;"	d
 __DOWOW_NETWORK__SAFE_CONNECTION_H_	SafeConnection.hpp	/^#define __DOWOW_NETWORK__SAFE_CONNECTION_H_$/;"	d
 __DOWOW_NETWORK__SERVER_H_	Server.hpp	/^#define __DOWOW_NETWORK__SERVER_H_$/;"	d
@@ -1018,6 +1092,7 @@ __anon1394855f0102	Request.cpp	/^                [&name](Datum* dat) { return da
 __anon1394855f0202	Request.cpp	/^            [&name](Datum* dat) { return dat->GetName() == name; }$/;"	f	function:DowowNetwork::Request::Get	file:
 __anon1e9f2ded0102	Server.cpp	/^        [&](Connection *c) {$/;"	f	function:DowowNetwork::Server::GetConnection	file:
 __anon1e9f2ded0202	Server.cpp	/^        [&](Connection *c) {$/;"	f	function:DowowNetwork::Server::GetConnection	file:
+__anon396f7a2b0102	tests/InternalConnection/Server.cpp	/^                        [&](InternalConnection *c) {$/;"	f	function:main	file:
 __anon6c3f49db0102	examples/ChatServer.cpp	/^            [&](auto& a){ return a.username == username; });$/;"	f	function:GetParticipant	file:
 __anon6c3f49db0202	examples/ChatServer.cpp	/^            [&](auto& a){ return a.id == id; });$/;"	f	function:GetParticipant	file:
 __anon6c3f49db0302	examples/ChatServer.cpp	/^    participants.remove_if([&](auto p) { return c->id == p.id; });$/;"	f	function:HandlerDisconnected	file:
@@ -1026,23 +1101,29 @@ __has_include	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^#  
 addToHistory	examples/ChatClient.cpp	/^void addToHistory(string from, string text) {$/;"	f	typeref:typename:void
 all	build/Makefile	/^all: cmake_check_build_system$/;"	t
 all	build/examples/Makefile	/^all: cmake_check_build_system$/;"	t
+all	build/tests/InternalConnection/Makefile	/^all: cmake_check_build_system$/;"	t
 all	build/tests/Makefile	/^all: cmake_check_build_system$/;"	t
 arguments	Request.hpp	/^        std::list<Datum*> arguments;$/;"	m	class:DowowNetwork::Request	typeref:typename:std::list<Datum * >
 array	values/ValueArr.hpp	/^        std::vector<Value*> array;$/;"	m	class:DowowNetwork::ValueArr	typeref:typename:std::vector<Value * >
 background_thread	Connection.hpp	/^        std::thread *background_thread = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::thread *
+bg_thread	InternalConnection.hpp	/^        std::thread *bg_thread = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::thread *
 c	SafeConnection.hpp	/^            Connection *c;$/;"	m	class:DowowNetwork::SafeConnection	typeref:typename:Connection *
 clean	build/Makefile	/^clean:$/;"	t
 clean	build/examples/Makefile	/^clean:$/;"	t
+clean	build/tests/InternalConnection/Makefile	/^clean:$/;"	t
 clean	build/tests/Makefile	/^clean:$/;"	t
 clean/fast	build/Makefile	/^clean\/fast: clean$/;"	t
 clean/fast	build/examples/Makefile	/^clean\/fast: clean$/;"	t
+clean/fast	build/tests/InternalConnection/Makefile	/^clean\/fast: clean$/;"	t
 clean/fast	build/tests/Makefile	/^clean\/fast: clean$/;"	t
 client	examples/ChatClient.cpp	/^Client client;$/;"	v	typeref:typename:Client
 cmake_check_build_system	build/Makefile	/^cmake_check_build_system:$/;"	t
 cmake_check_build_system	build/examples/Makefile	/^cmake_check_build_system:$/;"	t
+cmake_check_build_system	build/tests/InternalConnection/Makefile	/^cmake_check_build_system:$/;"	t
 cmake_check_build_system	build/tests/Makefile	/^cmake_check_build_system:$/;"	t
 cmake_force	build/Makefile	/^cmake_force:$/;"	t
 cmake_force	build/examples/Makefile	/^cmake_force:$/;"	t
+cmake_force	build/tests/InternalConnection/Makefile	/^cmake_force:$/;"	t
 cmake_force	build/tests/Makefile	/^cmake_force:$/;"	t
 cols	examples/ChatClient.cpp	/^int rows, cols;$/;"	v	typeref:typename:int
 connect_event	Client.hpp	/^        int connect_event = -1;$/;"	m	class:DowowNetwork::Client	typeref:typename:int
@@ -1051,28 +1132,39 @@ connections	Server.hpp	/^        std::list<Connection*> connections;$/;"	m	class
 const	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^# define const$/;"	d	file:
 default_target	build/Makefile	/^default_target: all$/;"	t
 default_target	build/examples/Makefile	/^default_target: all$/;"	t
+default_target	build/tests/InternalConnection/Makefile	/^default_target: all$/;"	t
 default_target	build/tests/Makefile	/^default_target: all$/;"	t
 depend	build/Makefile	/^depend:$/;"	t
 depend	build/examples/Makefile	/^depend:$/;"	t
+depend	build/tests/InternalConnection/Makefile	/^depend:$/;"	t
 depend	build/tests/Makefile	/^depend:$/;"	t
 disconnected_handler	Server.hpp	/^        ConnectionHandler disconnected_handler;$/;"	m	class:DowowNetwork::Server	typeref:typename:ConnectionHandler
 edit_cache	build/Makefile	/^edit_cache:$/;"	t
 edit_cache	build/examples/Makefile	/^edit_cache:$/;"	t
+edit_cache	build/tests/InternalConnection/Makefile	/^edit_cache:$/;"	t
 edit_cache	build/tests/Makefile	/^edit_cache:$/;"	t
 edit_cache/fast	build/Makefile	/^edit_cache\/fast: edit_cache$/;"	t
 edit_cache/fast	build/examples/Makefile	/^edit_cache\/fast: edit_cache$/;"	t
+edit_cache/fast	build/tests/InternalConnection/Makefile	/^edit_cache\/fast: edit_cache$/;"	t
 edit_cache/fast	build/tests/Makefile	/^edit_cache\/fast: edit_cache$/;"	t
+even_rids	InternalConnection.hpp	/^        bool even_rids = false;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:bool
 examples/CMakeFiles/ChatClient.dir/rule	build/examples/Makefile	/^examples\/CMakeFiles\/ChatClient.dir\/rule:$/;"	t
 examples/CMakeFiles/ChatServer.dir/rule	build/examples/Makefile	/^examples\/CMakeFiles\/ChatServer.dir\/rule:$/;"	t
 free_request_id	Connection.hpp	/^        uint32_t free_request_id = 1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
+free_rid	InternalConnection.hpp	/^        uint32_t free_rid = 1;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:uint32_t
 generate_values_all_h	prepare.py	/^def generate_values_all_h():$/;"	f
 handler_default	Connection.hpp	/^        RequestHandler handler_default = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:RequestHandler
+handler_default	InternalConnection.hpp	/^        RequestHandler handler_default = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:RequestHandler
+handler_stop_events	InternalConnection.hpp	/^        std::map<int, std::thread*> handler_stop_events;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::map<int,std::thread * >
 handlers_named	Connection.hpp	/^        std::map<std::string, RequestHandler> handlers_named;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::map<std::string,RequestHandler>
+handlers_named	InternalConnection.hpp	/^        std::map<std::string, RequestHandler> handlers_named;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::map<std::string,RequestHandler>
 help	build/Makefile	/^help:$/;"	t
 help	build/examples/Makefile	/^help:$/;"	t
+help	build/tests/InternalConnection/Makefile	/^help:$/;"	t
 help	build/tests/Makefile	/^help:$/;"	t
 history	examples/ChatClient.cpp	/^std::list<pair<string, string>> history;$/;"	v	typeref:typename:std::list<pair<string,string>>
 id	Connection.hpp	/^        uint32_t id = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
+id	InternalConnection.hpp	/^        uint32_t id = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:uint32_t
 id	Request.hpp	/^        uint32_t id = 0;$/;"	m	class:DowowNetwork::Request	typeref:typename:uint32_t
 id	examples/ChatServer.cpp	/^    uint32_t id;$/;"	m	struct:Participant	typeref:typename:uint32_t	file:
 info_arch	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^char const* info_arch = "INFO" ":" "arch[" ARCHITECTURE_ID "]";$/;"	v	typeref:typename:char const *
@@ -1101,9 +1193,11 @@ info_version_internal	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.c
 info_version_internal	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^char const* info_version_internal = "INFO" ":" "compiler_version_internal[" COMPILER_VERSION_INT/;"	v	typeref:typename:char const *
 input_field	examples/ChatClient.cpp	/^string input_field;$/;"	v	typeref:typename:string
 is_disconnecting	Connection.hpp	/^        bool is_disconnecting = false;$/;"	m	class:DowowNetwork::Connection	typeref:typename:bool
+is_disconnecting	InternalConnection.hpp	/^        bool is_disconnecting = false;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:bool
 is_even_request_parts	Connection.hpp	/^        bool is_even_request_parts = false;$/;"	m	class:DowowNetwork::Connection	typeref:typename:bool
 is_login	examples/ChatClient.cpp	/^bool is_login = false;$/;"	v	typeref:typename:bool
 is_recv_length	Connection.hpp	/^        bool is_recv_length = true;$/;"	m	class:DowowNetwork::Connection	typeref:typename:bool
+last_errno	InternalConnection.hpp	/^        int last_errno = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:int
 main	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^int main(argc, argv) int argc; char *argv[];$/;"	f
 main	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^void main() {}$/;"	f	typeref:typename:void
 main	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^int main(int argc, char* argv[])$/;"	f	typeref:typename:int
@@ -1118,16 +1212,27 @@ main	tests/DatumTest2.cpp	/^int main(int argc, char** argv) {$/;"	f	typeref:type
 main	tests/DatumTest3.cpp	/^int main(int argc, char** argv) {$/;"	f	typeref:typename:int
 main	tests/DowowConnectionTest.cpp	/^int main() {$/;"	f	typeref:typename:int
 main	tests/DummyServer.cpp	/^int main() {$/;"	f	typeref:typename:int
+main	tests/InternalConnection/Server.cpp	/^int main() {$/;"	f	typeref:typename:int
 main	tests/ServerTest.cpp	/^int main(int argc, char** argv) {$/;"	f	typeref:typename:int
 max_connections	Server.hpp	/^        int32_t max_connections = -1;$/;"	m	class:DowowNetwork::Server	typeref:typename:int32_t
 messages_sent	examples/ChatServer.cpp	/^    uint32_t messages_sent;$/;"	m	struct:Participant	typeref:typename:uint32_t	file:
+mt_handlers	Connection.hpp	/^        bool mt_handlers = true;$/;"	m	class:DowowNetwork::Connection	typeref:typename:bool
 mutex_bt	Connection.hpp	/^        std::recursive_mutex mutex_bt;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
-mutex_cd	Connection.hpp	/^        std::recursive_mutex mutex_cd;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
 mutex_fri	Connection.hpp	/^        std::recursive_mutex mutex_fri;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_hd	Connection.hpp	/^        std::recursive_mutex mutex_hd;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_hn	Connection.hpp	/^        std::recursive_mutex mutex_hn;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_id	Connection.hpp	/^        std::recursive_mutex mutex_id;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_ivrp	Connection.hpp	/^        std::recursive_mutex mutex_ivrp;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_osai	Connection.hpp	/^        std::recursive_mutex mutex_osai;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
 mutex_ra	Connection.hpp	/^        std::recursive_mutex mutex_ra;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_rbml	Connection.hpp	/^        std::recursive_mutex mutex_rbml;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_rbs	Connection.hpp	/^        std::recursive_mutex mutex_rbs;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_re	Connection.hpp	/^        std::recursive_mutex mutex_re;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
 mutex_rq	Connection.hpp	/^        std::recursive_mutex mutex_rq;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_sbs	Connection.hpp	/^        std::recursive_mutex mutex_sbs;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
 mutex_server	Server.hpp	/^        std::recursive_mutex mutex_server;$/;"	m	class:DowowNetwork::Server	typeref:typename:std::recursive_mutex
 mutex_sq	Connection.hpp	/^        std::recursive_mutex mutex_sq;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
+mutex_tnai	Connection.hpp	/^        std::recursive_mutex mutex_tnai;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::recursive_mutex
 mutex_tsfd	Client.hpp	/^        std::mutex mutex_tsfd;$/;"	m	class:DowowNetwork::Client	typeref:typename:std::mutex
 name	Datum.hpp	/^        std::string name = "";$/;"	m	class:DowowNetwork::Datum	typeref:typename:std::string
 name	Request.hpp	/^        std::string name;$/;"	m	class:DowowNetwork::Request	typeref:typename:std::string
@@ -1148,43 +1253,60 @@ our_sa_timer	Connection.hpp	/^        int our_sa_timer = -1;$/;"	m	class:DowowNe
 participants	examples/ChatServer.cpp	/^list<Participant> participants;$/;"	v	typeref:typename:list<Participant>
 preinstall	build/Makefile	/^preinstall: all$/;"	t
 preinstall	build/examples/Makefile	/^preinstall: all$/;"	t
+preinstall	build/tests/InternalConnection/Makefile	/^preinstall: all$/;"	t
 preinstall	build/tests/Makefile	/^preinstall: all$/;"	t
 preinstall/fast	build/Makefile	/^preinstall\/fast:$/;"	t
 preinstall/fast	build/examples/Makefile	/^preinstall\/fast:$/;"	t
+preinstall/fast	build/tests/InternalConnection/Makefile	/^preinstall\/fast:$/;"	t
 preinstall/fast	build/tests/Makefile	/^preinstall\/fast:$/;"	t
+pull_subscribe	InternalConnection.hpp	/^        std::map<int, Request*> pull_subscribe;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::map<int,Request * >
 push_event	Connection.hpp	/^        int push_event = -1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:int
+push_event	InternalConnection.hpp	/^        int push_event = -1;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:int
+push_subscribe	InternalConnection.hpp	/^        std::map<uint32_t, std::pair<int, Request*>> push_subscribe;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::map<uint32_t,std::pair<int,Request * >>
 qnxnto	build/CMakeFiles/3.22.1/CompilerIdC/CMakeCCompilerId.c	/^char const* qnxnto = "INFO" ":" "qnxnto[]";$/;"	v	typeref:typename:char const *
 qnxnto	build/CMakeFiles/3.22.1/CompilerIdCXX/CMakeCXXCompilerId.cpp	/^char const* qnxnto = "INFO" ":" "qnxnto[]";$/;"	v	typeref:typename:char const *
 rebuild_cache	build/Makefile	/^rebuild_cache:$/;"	t
 rebuild_cache	build/examples/Makefile	/^rebuild_cache:$/;"	t
+rebuild_cache	build/tests/InternalConnection/Makefile	/^rebuild_cache:$/;"	t
 rebuild_cache	build/tests/Makefile	/^rebuild_cache:$/;"	t
 rebuild_cache/fast	build/Makefile	/^rebuild_cache\/fast: rebuild_cache$/;"	t
 rebuild_cache/fast	build/examples/Makefile	/^rebuild_cache\/fast: rebuild_cache$/;"	t
+rebuild_cache/fast	build/tests/InternalConnection/Makefile	/^rebuild_cache\/fast: rebuild_cache$/;"	t
 rebuild_cache/fast	build/tests/Makefile	/^rebuild_cache\/fast: rebuild_cache$/;"	t
-receive_event	Connection.hpp	/^        int receive_event = -1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:int
+receive_events	Connection.hpp	/^        std::list<int> receive_events;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::list<int>
 recv_block_size	Connection.hpp	/^        uint32_t recv_block_size = 1024;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
 recv_buffer	Connection.hpp	/^        char* recv_buffer = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:char *
+recv_buffer	InternalConnection.hpp	/^        char *recv_buffer = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:char *
 recv_buffer_length	Connection.hpp	/^        uint32_t recv_buffer_length = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
 recv_buffer_max_length	Connection.hpp	/^        uint32_t recv_buffer_max_length = 16 * 1024;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
 recv_buffer_offset	Connection.hpp	/^        uint32_t recv_buffer_offset = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
+recv_buffer_offset	InternalConnection.hpp	/^        uint32_t recv_buffer_offset = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:uint32_t
+recv_buffer_size	InternalConnection.hpp	/^        uint32_t recv_buffer_size = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:uint32_t
 recv_queue	Connection.hpp	/^        std::queue<Request*> recv_queue;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::queue<Request * >
+recv_queue	InternalConnection.hpp	/^        std::list<Request*> recv_queue;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::list<Request * >
 redrawChat	examples/ChatClient.cpp	/^void redrawChat() {$/;"	f	typeref:typename:void
 redrawInput	examples/ChatClient.cpp	/^void redrawInput() {$/;"	f	typeref:typename:void
 refs_amount	Connection.hpp	/^        uint32_t refs_amount = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
 rows	examples/ChatClient.cpp	/^int rows, cols;$/;"	v	typeref:typename:int
 send_block_size	Connection.hpp	/^        uint32_t send_block_size = 1024;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
 send_buffer	Connection.hpp	/^        const char* send_buffer = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:const char *
+send_buffer	InternalConnection.hpp	/^        const char *send_buffer = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:const char *
 send_buffer_length	Connection.hpp	/^        uint32_t send_buffer_length = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
 send_buffer_offset	Connection.hpp	/^        uint32_t send_buffer_offset = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint32_t
+send_buffer_offset	InternalConnection.hpp	/^        uint32_t send_buffer_offset = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:uint32_t
+send_buffer_size	InternalConnection.hpp	/^        uint32_t send_buffer_size = 0;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:uint32_t
 send_queue	Connection.hpp	/^        std::queue<Request*> send_queue;$/;"	m	class:DowowNetwork::Connection	typeref:typename:std::queue<Request * >
+send_queue	InternalConnection.hpp	/^        std::list<Request*> send_queue;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:std::list<Request * >
 server	examples/ChatServer.cpp	/^Server server;$/;"	v	typeref:typename:Server
 server	tests/ServerTest.cpp	/^Server server;$/;"	v	typeref:typename:Server
-session_data	Connection.hpp	/^        void* session_data = 0;$/;"	m	class:DowowNetwork::Connection	typeref:typename:void *
 socket_fd	Connection.hpp	/^        int socket_fd = -1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:int
+socket_fd	InternalConnection.hpp	/^        int socket_fd = -1;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:int
 socket_fd	Server.hpp	/^        int socket_fd = -1;$/;"	m	class:DowowNetwork::Server	typeref:typename:int
+socket_fd	tests/InternalConnection/Server.cpp	/^int socket_fd = -1;$/;"	v	typeref:typename:int
 socket_type	Connection.hpp	/^        uint8_t socket_type = SocketTypeUndefined;$/;"	m	class:DowowNetwork::Connection	typeref:typename:uint8_t
 socket_type	Server.hpp	/^        uint8_t socket_type = SocketTypeUndefined; $/;"	m	class:DowowNetwork::Server	typeref:typename:uint8_t
 stopped_event	Connection.hpp	/^        int stopped_event = -1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:int
+stopped_event	InternalConnection.hpp	/^        int stopped_event = -1;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:int
 stopped_event	Server.hpp	/^        int stopped_event = -1;$/;"	m	class:DowowNetwork::Server	typeref:typename:int
 str_data	values/ValueStr.hpp	/^        char* str_data = 0;$/;"	m	class:DowowNetwork::ValueStr	typeref:typename:char *
 str_length	values/ValueStr.hpp	/^        uint32_t str_length = 0;$/;"	m	class:DowowNetwork::ValueStr	typeref:typename:uint32_t
@@ -1194,9 +1316,11 @@ tcp_socket_port	Server.hpp	/^        uint16_t tcp_socket_port;$/;"	m	class:Dowow
 temp_socket_fd	Client.hpp	/^        int temp_socket_fd = -1;$/;"	m	class:DowowNetwork::Client	typeref:typename:int
 test	build/Makefile	/^test:$/;"	t
 test	build/examples/Makefile	/^test:$/;"	t
+test	build/tests/InternalConnection/Makefile	/^test:$/;"	t
 test	build/tests/Makefile	/^test:$/;"	t
 test/fast	build/Makefile	/^test\/fast: test$/;"	t
 test/fast	build/examples/Makefile	/^test\/fast: test$/;"	t
+test/fast	build/tests/InternalConnection/Makefile	/^test\/fast: test$/;"	t
 test/fast	build/tests/Makefile	/^test\/fast: test$/;"	t
 tests/CMakeFiles/ClientServerMetatest.dir/rule	build/tests/Makefile	/^tests\/CMakeFiles\/ClientServerMetatest.dir\/rule:$/;"	t
 tests/CMakeFiles/ClientTest.dir/rule	build/tests/Makefile	/^tests\/CMakeFiles\/ClientTest.dir\/rule:$/;"	t
@@ -1229,11 +1353,14 @@ tests/CMakeFiles/NightlySubmit.dir/rule	build/tests/Makefile	/^tests\/CMakeFiles
 tests/CMakeFiles/NightlyTest.dir/rule	build/tests/Makefile	/^tests\/CMakeFiles\/NightlyTest.dir\/rule:$/;"	t
 tests/CMakeFiles/NightlyUpdate.dir/rule	build/tests/Makefile	/^tests\/CMakeFiles\/NightlyUpdate.dir\/rule:$/;"	t
 tests/CMakeFiles/ServerTest.dir/rule	build/tests/Makefile	/^tests\/CMakeFiles\/ServerTest.dir\/rule:$/;"	t
+tests/InternalConnection/CMakeFiles/Server.dir/rule	build/tests/InternalConnection/Makefile	/^tests\/InternalConnection\/CMakeFiles\/Server.dir\/rule:$/;"	t
 their_na_interval	Connection.hpp	/^        time_t their_na_interval = 60;$/;"	m	class:DowowNetwork::Connection	typeref:typename:time_t
 their_na_timer	Connection.hpp	/^        int their_na_timer = -1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:int
 to_stop_event	Connection.hpp	/^        int to_stop_event = -1;$/;"	m	class:DowowNetwork::Connection	typeref:typename:int
+to_stop_event	InternalConnection.hpp	/^        int to_stop_event = -1;$/;"	m	class:DowowNetwork::InternalConnection	typeref:typename:int
 to_stop_event	Server.hpp	/^        int to_stop_event = -1;$/;"	m	class:DowowNetwork::Server	typeref:typename:int
 to_work	tests/DowowConnectionTest.cpp	/^bool to_work = true;$/;"	v	typeref:typename:bool
+to_work	tests/InternalConnection/Server.cpp	/^bool to_work = true;$/;"	v	typeref:typename:bool
 type	Value.hpp	/^        const uint8_t type;$/;"	m	class:DowowNetwork::Value	typeref:typename:const uint8_t
 undefined_data	values/ValueUndefined.hpp	/^        void* undefined_data = 0;$/;"	m	class:DowowNetwork::ValueUndefined	typeref:typename:void *
 undefined_data_length	values/ValueUndefined.hpp	/^        uint32_t undefined_data_length = 0;$/;"	m	class:DowowNetwork::ValueUndefined	typeref:typename:uint32_t
@@ -1319,6 +1446,7 @@ zero_time	Utils.cpp	/^const timespec zero_time { 0, 0 };$/;"	v	typeref:typename:
 ~Client	Client.cpp	/^DowowNetwork::Client::~Client() {$/;"	f	class:DowowNetwork::Client
 ~Connection	Connection.cpp	/^DowowNetwork::Connection::~Connection() {$/;"	f	class:DowowNetwork::Connection
 ~Datum	Datum.cpp	/^DowowNetwork::Datum::~Datum() {$/;"	f	class:DowowNetwork::Datum
+~InternalConnection	InternalConnection.cpp	/^DowowNetwork::InternalConnection::~InternalConnection() {$/;"	f	class:DowowNetwork::InternalConnection
 ~Request	Request.cpp	/^DowowNetwork::Request::~Request() {$/;"	f	class:DowowNetwork::Request
 ~SafeConnection	SafeConnection.hpp	/^            inline ~SafeConnection() {$/;"	f	class:DowowNetwork::SafeConnection
 ~Server	Server.cpp	/^DowowNetwork::Server::~Server() {$/;"	f	class:DowowNetwork::Server

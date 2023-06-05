@@ -16,3 +16,6 @@ target_link_libraries(ClientTest DowowNetwork)
 
 # add the test themselves
 add_test(NAME ClientServer COMMAND ClientServerMetatest)
+
+# add the subdirector for InternalConenction
+add_subdirectory(InternalConnection)

@@ -1,0 +1,33 @@
+CONNECTION
+Summary
+1. InternalConnection is a class that represent one stable connection between two connection-oriented sockets.
+2. InternalConnection is not usable after disconnection.
+3. InternalConnection does not implement the connection establishment.
+4. InternalConnection performs all I/O operations in the background thread.
+5. InternalConnection implements keep-alive mechanism.
+6. InternalConnection assigns IDs for *Request*s it send: odd ID's are set on the server side, even ID's are set on the client side.
+7. InternalConnection can be initialized with file descriptor of a connected socket.
+8. InternalConnection doesn't care if the socket is blocking or nonblocking. *poll()* is used either case.
+9. InternalConnection is used _only_ inside the library.
+
+## The interface
+The InternalConnection has the following interface:  
+* InternalConnection(int fd)  
+    The InternalConnection constructor which initializes the InternalConnection with a connected socket **fd**.  
+* Request *Push(Request *r, bool change_id = true, bool copy = false, int timeout = 0)  
+    The method to put the *Request* **r** to the send queue. The request id will not be changed unless the **change_id** is true.  
+    The **r** will be copied if **copy** is true, otherwise the pointer will be stolen and may not be uesd anymore.
+    If **timeout** is nonzero then the response will be awaited for **timeout** seconds (use **-1** to wait forever).
+    This function returns null-pointer if **timeout** is zero or if no response received; a pointer to the response if peer responded
+    (the pointer is in your ownership).  
+* Request *Push(const Request &r, bool change_id = true, int timeout = 0)  
+    The behaviour is the same as the previous method, but the Request **r** is always copied.  
+* Request *Pull(int timeout = 0)  
+    Pull the *Request* from the receive queue. Wait for **timeout** seconds if the queue is empty (or **-1** to wait forever). Returns
+    null-pointer if failed to obtain the *Request* within specified time interval. Returns a pointer to *Request* on success (the pointer is
+    in your ownership).  
+* bool WaitForStop(int timeout = -1)  
+    Wait for **timeout** seconds until disconnection. Returns true if disconnected within specfied time interval, false otherwise.  
+* void Disconnect(bool forced = false)  
+    Disconnect. Will be disconnected immidiately if **forced**. All the remaining data will be sent if not **forced** but all the *Push()* calls
+    will do nothing while disconnecting or disconnected. The *Poll()* may be used even after disconnection, as the receive queue might be not empty.

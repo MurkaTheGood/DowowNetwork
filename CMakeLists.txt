@@ -5,7 +5,6 @@ project(DowowNetwork)
 option(BUILD_EXAMPLES "Build examples?")
 option(BUILD_TESTS "Build tests?" OFF)
 option(DEBUG "Include debug symbols?" OFF)
-option(DEBUG_VERBOSE "Print verbose debug messages? Works if DEBUG" OFF)
 
 # sources of some value types
 set(VALUES_SOURCES
@@ -24,6 +23,7 @@ set(VALUES_SOURCES
 # sources of the main library
 set(SOURCES
     Connection.cpp
+    InternalConnection.cpp
     Client.cpp
     Datum.cpp
     Request.cpp

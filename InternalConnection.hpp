@@ -63,6 +63,16 @@ namespace DowowNetwork {
         // last errno
         int last_errno = 0;
 
+        // *******
+        // MUTEXES
+        // *******
+        std::recursive_mutex mutex_sq;      // send queue
+        std::recursive_mutex mutex_rq;      // recv queue
+
+        // *********
+        // FUNCTIONS
+        // *********
+
         // the handler thread logic
         static void HandlerBootstapper(
                 InternalConnection *c,

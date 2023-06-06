@@ -25,6 +25,9 @@ void DowowNetwork::InternalConnection::HandlerBootstapper(
     // call the handler
     (*h)(c, r);
 
+    // delete the handled request
+    delete r;
+
     // signal about stop
     Utils::WriteEventFd(stopped_event, 1);
 }
@@ -140,19 +143,16 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
     delete[] fds;
 
     // TODO: lock
+    // mark as disconnecting to prevent new threads
+    // from appearing
+    c->is_disconnecting = true;
 
-    // stopping, so delete the timers
-    close(our_timer);
-    close(their_timer);
+    // signal all the events about stop
+    for (auto &i: c->push_subscribe)
+        Utils::WriteEventFd(i.second.first, 1);
+    for (auto &i: c->pull_subscribe)
+        Utils::WriteEventFd(i.first, 1);
 
-    // shutdown and close the socket
-    shutdown(c->socket_fd, SHUT_RDWR);
-    close(c->socket_fd);
-
-    // delete existing buffer
-    delete[] c->send_buffer;
-    delete[] c->recv_buffer;
-    
     // wait for all the threads to finish
     while (c->handler_stop_events.size()) {
         uint32_t hse_a = c->handler_stop_events.size();
@@ -182,8 +182,26 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
 
             c->handler_stop_events.erase(fd);
         }
+
+        delete[] fds;
     }
 
+    // TODO: lock the background thread
+  
+    // we may refuse to use mutexes from now on.
+
+    // stopping, so delete the timers
+    close(our_timer);
+    close(their_timer);
+
+    // shutdown and close the socket
+    shutdown(c->socket_fd, SHUT_RDWR);
+    close(c->socket_fd);
+
+    // delete existing buffer
+    delete[] c->send_buffer;
+    delete[] c->recv_buffer;
+    
     // clear the send queue
     for (auto i: c->send_queue)
         delete i;
@@ -220,33 +238,43 @@ void DowowNetwork::InternalConnection::HandleReceived(Request *r) {
         return;
     }
 
-    // TODO lock
-
     // no handler - add to the queue then
+    mutex_rq.lock();
     recv_queue.push_back(r);
+    mutex_rq.unlock();
 }
 
 bool DowowNetwork::InternalConnection::HasSomethingToSend() {
-    // TODO lock
-
+    std::lock_guard<typeof(mutex_sq)> __msq(mutex_sq);
     return send_queue.size() || send_buffer;
 }
 
 bool DowowNetwork::InternalConnection::PopSendQueue() {
-    // TODO lock
+    mutex_sq.lock();
 
-    if (send_queue.empty())
+    // the queue is empty
+    if (send_queue.empty()) {
+        mutex_sq.unlock();
         return false;
+    }
 
+    // pop the request
     Request *r = send_queue.front();
     send_queue.erase(send_queue.begin());
 
+    // serialize into send buffer
     send_buffer = r->Serialize();
     send_buffer_size = r->GetSize();
     send_buffer_offset = 0;
 
+    // delete the Request, because we have
+    // serialized it
     delete r;
 
+    // unlock
+    mutex_sq.unlock();
+
+    // popped - success
     return true;
 }
 
@@ -422,11 +450,12 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
     // store the RI
     uint32_t ri = r->GetId();
 
-    // TODO lock send_queue
+    mutex_sq.lock();
     send_queue.push_back(r);
+    mutex_sq.unlock();
+
     // push event
     Utils::WriteEventFd(push_event, 1);
-    // TODO unlock send_queue
     
     // wait for response?
     if (timeout == 0)
@@ -463,16 +492,17 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
 }
 
 DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
-    // TODO lock
+    // TODO: lock background thread
 
     // not connected, quit now
     if (!IsConnected())
         return 0;
 
-    // TODO lock
+    mutex_rq.lock();
     if (recv_queue.size()) {
         Request *r = recv_queue.front();
         recv_queue.erase(recv_queue.begin());
+        mutex_rq.unlock();
         return r;
     }
 
@@ -577,6 +607,10 @@ DowowNetwork::InternalConnection::~InternalConnection() {
     close(stopped_event);
     close(to_stop_event);
     close(push_event);
+
+    // delete the receive queue
+    for (auto &i: recv_queue)
+        delete i;
 
     // join and delete
     bg_thread->join();

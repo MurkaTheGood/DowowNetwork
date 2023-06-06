@@ -48,7 +48,6 @@ void Setup() {
 
     // bind the socket
     temp = bind(socket_fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin));
-    cout << errno << endl;
     assert(temp != -1 && "bind");
 
     // set to listen

@@ -94,7 +94,6 @@ int main() {
     cout << "[MET] Requesting the server stop..." << endl;
     c = Connect(23060);
     c->Push(new Request("stop"));
-    sleep(10);
     c->Disconnect(false);
     c->WaitForStop(-1);
     delete c;

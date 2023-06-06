@@ -14,6 +14,8 @@
 
 #include "Utils.hpp"
 
+#include <iostream>
+
 void DowowNetwork::InternalConnection::HandlerBootstapper(
         InternalConnection *c,
         RequestHandler h,
@@ -361,8 +363,8 @@ bool DowowNetwork::InternalConnection::Recv() {
             uint32_t old = buf_size;
 
             // from be32 to host
-            recv_buffer_size = be32toh(recv_buffer_size);
-            recv_buffer_offset = 0;
+            recv_buffer_size = le32toh(recv_buffer_size);
+            recv_buffer_offset = sizeof(recv_buffer_size);
 
             // create the buffer
             recv_buffer = new char[recv_buffer_size];
@@ -422,10 +424,12 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
 
     // TODO lock send_queue
     send_queue.push_back(r);
+    // push event
+    Utils::WriteEventFd(push_event, 1);
     // TODO unlock send_queue
     
     // wait for response?
-    if (timeout == -1)
+    if (timeout == 0)
         return 0;
 
     // yeah, wait

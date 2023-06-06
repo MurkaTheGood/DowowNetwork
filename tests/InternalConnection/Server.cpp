@@ -60,7 +60,7 @@ void Setup() {
 
 // The handler for ping request.
 void HandlerPing(InternalConnection *c, Request *r) {
-    cout << "[REQ] " << c->id << ": " << r->GetName() << endl;
+    cout << "[REQ] " << c->id << ": " << r->GetName() << " (" << r->GetSize() << " bytes)" << endl;
     Request res("pong");
     c->Push(res);
 }

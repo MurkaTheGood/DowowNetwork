@@ -563,6 +563,10 @@ DowowNetwork::RequestHandler DowowNetwork::InternalConnection::GetHandlerDefault
     return handler_default;
 }
 
+int DowowNetwork::InternalConnection::GetErrno() {
+    return last_errno;
+}
+
 DowowNetwork::InternalConnection::~InternalConnection() {
     // finita la commedia
     Disconnect(true);

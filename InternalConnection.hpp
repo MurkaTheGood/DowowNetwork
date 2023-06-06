@@ -113,6 +113,8 @@ namespace DowowNetwork {
         void SetHandlerDefault(RequestHandler h);
         RequestHandler GetHandlerDefault();
 
+        int GetErrno();
+
         ~InternalConnection();
     };
 }

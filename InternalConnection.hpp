@@ -32,8 +32,8 @@ namespace DowowNetwork {
         uint32_t free_rid = 1;
         bool even_rids = false;
 
-        // disconnecting gracefully?
-        bool is_disconnecting = false;
+        // is disconnection in progress?
+        bool to_finish = false;
 
         // queues
         std::list<Request*> send_queue;
@@ -68,6 +68,7 @@ namespace DowowNetwork {
         // *******
         std::recursive_mutex mutex_sq;      // send queue
         std::recursive_mutex mutex_rq;      // recv queue
+        std::recursive_mutex mutex_tf;      // to finish
 
         // *********
         // FUNCTIONS

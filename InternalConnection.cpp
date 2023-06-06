@@ -58,11 +58,13 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
         fds[0].fd = c->to_stop_event;
         fds[0].events = POLLIN;
         // socket
+        c->mutex_tf.lock();
         fds[1].fd = c->socket_fd;
         fds[1].events =
-            (!c->is_disconnecting ? POLLIN : 0) |
-            (c->HasSomethingToSend() | c->is_disconnecting ? POLLOUT : 0) |
+            (!c->to_finish ? POLLIN : 0) |
+            (c->HasSomethingToSend() | c->to_finish ? POLLOUT : 0) |
             POLLHUP;
+        c->mutex_tf.unlock();
         // push
         fds[2].fd = c->push_event;
         fds[2].events = POLLIN;
@@ -142,10 +144,11 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
     // cleanup
     delete[] fds;
 
-    // TODO: lock
     // mark as disconnecting to prevent new threads
     // from appearing
-    c->is_disconnecting = true;
+    c->mutex_tf.lock();
+    c->to_finish = true;
+    c->mutex_tf.unlock();
 
     // signal all the events about stop
     for (auto &i: c->push_subscribe)
@@ -424,13 +427,17 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
         Request *r, bool c_id, bool copy, int timeout)
 {
     // TODO lock the background thread
-
-    // allow pushing only if connected
-    if (!IsConnected()) {
+    
+    // do not push if going to finish
+    mutex_tf.lock();
+    if (to_finish) {
         if (!copy)
             delete r;
+        mutex_tf.unlock();
         return 0;
     }
+    mutex_tf.unlock();
+
 
     // copy?
     if (copy) {
@@ -461,6 +468,13 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
     if (timeout == 0)
         return 0;
 
+    // to finish?
+    mutex_tf.lock();
+    if (to_finish) {
+        mutex_tf.unlock();
+        return 0;
+    }
+
     // yeah, wait
     int efd = eventfd(0, 0);
     
@@ -468,6 +482,7 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
     std::pair<int, Request*> rp { efd, 0 };
     push_subscribe[ri] = rp;
     // TODO unlock
+    mutex_tf.unlock();
 
     // wait for completion
     pollfd pollfds { efd, POLLIN, 0 };
@@ -495,8 +510,12 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
     // TODO: lock background thread
 
     // not connected, quit now
-    if (!IsConnected())
+    mutex_tf.lock();
+    if (to_finish) {
+        mutex_tf.unlock();
         return 0;
+    }
+    mutex_tf.unlock();
 
     mutex_rq.lock();
     if (recv_queue.size()) {
@@ -510,12 +529,20 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
     if (timeout == 0)
         return 0;
 
+    // lock the to_finish
+    mutex_tf.lock();
+    if (to_finish) {
+        mutex_tf.unlock();
+        return 0;
+    }
+
     // setup the event
     int efd = eventfd(0, 0);
 
     // TODO lock
     pull_subscribe[efd] = 0;
     // TODO unlock
+    mutex_tf.unlock();
     
     // poll
     pollfd pollfds { efd, POLLIN, 0 };
@@ -545,7 +572,7 @@ void DowowNetwork::InternalConnection::Disconnect(bool forced) {
         Utils::WriteEventFd(to_stop_event, 1);
     // graceful, mark as disconnecting
     else
-        is_disconnecting = true;
+        to_finish = true;
 }
 
 int DowowNetwork::InternalConnection::GetStoppedEvent() {

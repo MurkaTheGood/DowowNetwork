@@ -76,10 +76,10 @@ void HandlerGet(InternalConnection *c, Request *r) {
 // The handler for 'hang'
 void HandlerHang(InternalConnection *c, Request *r) {
     cout << "[REQ] " << c->id << ": " << r->GetName() << endl;
-    cout << "[REQ] Sleeping for 15s..." << endl;
+    cout << "[REQ] Sleeping for 5s..." << endl;
 
-    // hang for 15 seconds
-    sleep(15);
+    // hang for 5 seconds
+    sleep(5);
 
     cout << "[REQ] Slept well, resuming!" << endl;
 

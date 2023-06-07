@@ -14,8 +14,6 @@
 
 #include "Utils.hpp"
 
-#include <iostream>
-
 void DowowNetwork::InternalConnection::HandlerBootstapper(
         InternalConnection *c,
         RequestHandler h,
@@ -188,9 +186,6 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
 
         delete[] fds;
     }
-
-    // TODO: lock the background thread
-  
     // we may refuse to use mutexes from now on.
 
     // stopping, so delete the timers
@@ -215,14 +210,15 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
 
 void DowowNetwork::InternalConnection::HandleReceived(Request *r) {
     // check if subscription exists
-    // TODO lock
+    mutex_pss.lock();
     auto it = push_subscribe.find(r->GetId());
     if (it != push_subscribe.end()) {
         it->second.second = r;
-        Utils::WriteEventFd(it->first, 1);
+        Utils::WriteEventFd(it->second.first, 1);
+        mutex_pss.unlock();
         return;
     }
-    // TODO unlock
+    mutex_pss.unlock();
 
     // check if we've got any appropriate handler
     // NAMED
@@ -238,6 +234,14 @@ void DowowNetwork::InternalConnection::HandleReceived(Request *r) {
         std::thread *t = new std::thread(
                 HandlerBootstapper, this, h, r, efd);
         handler_stop_events[efd] = t;
+        return;
+    }
+
+    // no handler, check if pull is subscribed
+    if (pull_subscribe.size()) {
+        auto it = pull_subscribe.begin();
+        it->second = r;
+        Utils::WriteEventFd(it->first, 1);
         return;
     }
 
@@ -354,9 +358,11 @@ bool DowowNetwork::InternalConnection::Recv() {
             recv_buffer = 0;
             recv_buffer_offset = 0;
 
-            // failed, did not deserialize
-            if (!used) {
+            // failed to deserialize or too small
+            if (used < 11) {
                 delete r;
+                // they're using invalid protocol
+                return false;
             }
 
             // success, handle the request
@@ -426,8 +432,6 @@ DowowNetwork::InternalConnection::InternalConnection(int fd) {
 DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
         Request *r, bool c_id, bool copy, int timeout)
 {
-    // TODO lock the background thread
-    
     // do not push if going to finish
     mutex_tf.lock();
     if (to_finish) {
@@ -437,7 +441,6 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
         return 0;
     }
     mutex_tf.unlock();
-
 
     // copy?
     if (copy) {
@@ -465,8 +468,9 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
     Utils::WriteEventFd(push_event, 1);
     
     // wait for response?
-    if (timeout == 0)
+    if (timeout == 0) {
         return 0;
+    }
 
     // to finish?
     mutex_tf.lock();
@@ -478,20 +482,20 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
     // yeah, wait
     int efd = eventfd(0, 0);
     
-    // TODO lock
+    mutex_pss.lock();
     std::pair<int, Request*> rp { efd, 0 };
     push_subscribe[ri] = rp;
-    // TODO unlock
+    mutex_pss.unlock();
     mutex_tf.unlock();
 
     // wait for completion
     pollfd pollfds { efd, POLLIN, 0 };
     poll(&pollfds, 1, timeout * 1000);
 
-    // TODO lock
+    mutex_pss.lock();
     Request* res = push_subscribe[ri].second;
     push_subscribe.erase(ri);
-    // TODO unlock
+    mutex_pss.unlock();
 
     close(efd);
     return res;
@@ -507,8 +511,6 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
 }
 
 DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
-    // TODO: lock background thread
-
     // not connected, quit now
     mutex_tf.lock();
     if (to_finish) {
@@ -517,6 +519,7 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
     }
     mutex_tf.unlock();
 
+
     mutex_rq.lock();
     if (recv_queue.size()) {
         Request *r = recv_queue.front();
@@ -524,6 +527,7 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
         mutex_rq.unlock();
         return r;
     }
+    mutex_rq.unlock();
 
     // empty queue, timeout is 0, so return
     if (timeout == 0)

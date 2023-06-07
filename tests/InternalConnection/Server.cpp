@@ -20,6 +20,7 @@
 #include <netinet/in.h>
 
 #include "../../InternalConnection.hpp"
+#include "../../values/All.hpp"
 
 using namespace std;
 using namespace DowowNetwork;
@@ -76,10 +77,14 @@ void HandlerGet(InternalConnection *c, Request *r) {
 // The handler for 'hang'
 void HandlerHang(InternalConnection *c, Request *r) {
     cout << "[REQ] " << c->id << ": " << r->GetName() << endl;
-    cout << "[REQ] Sleeping for 5s..." << endl;
+    uint32_t s = 5;
+    if (r->Get<Value32U>("s"))
+        s = r->Get<Value32U>("s")->Get();
 
-    // hang for 5 seconds
-    sleep(5);
+    cout << "[REQ] Sleeping for " << s << "s..." << endl;
+
+    // hang for s seconds
+    sleep(s);
 
     cout << "[REQ] Slept well, resuming!" << endl;
 

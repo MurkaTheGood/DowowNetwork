@@ -642,6 +642,12 @@ DowowNetwork::InternalConnection::~InternalConnection() {
     // delete the receive queue
     for (auto &i: recv_queue)
         delete i;
+    // delete the push subscribe
+    for (auto &i: push_subscribe)
+        delete i.second.second;
+    // delete the pull subscribe
+    for (auto &i: pull_subscribe)
+        delete i.second;
 
     // join and delete
     bg_thread->join();

@@ -10,10 +10,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g --std=c++11")
 add_executable(Server Server.cpp)
 add_executable(ConnectivityTest ConnectivityTest.cpp)
 add_executable(PushTest PushTest.cpp)
+add_executable(PullTest PullTest.cpp)
 
 target_link_libraries(Server DowowNetwork)
 target_link_libraries(ConnectivityTest DowowNetwork)
 target_link_libraries(PushTest DowowNetwork)
+target_link_libraries(PullTest DowowNetwork)
 
 # add the test themselves
 # add_test(NAME ConnectivityTest COMMAND ClientServerMetatest)

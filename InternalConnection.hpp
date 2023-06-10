@@ -69,7 +69,8 @@ namespace DowowNetwork {
         std::recursive_mutex mutex_sq;      // send queue
         std::recursive_mutex mutex_rq;      // recv queue
         std::recursive_mutex mutex_tf;      // to finish
-        std::recursive_mutex mutex_pss;      // push subcribe
+        std::recursive_mutex mutex_pss;     // push subcribe
+        std::recursive_mutex mutex_pls;     // pull subcribe
 
         // *********
         // FUNCTIONS

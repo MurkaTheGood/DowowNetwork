@@ -209,7 +209,7 @@ void DowowNetwork::InternalConnection::BackgroundFunction(InternalConnection *c)
 }
 
 void DowowNetwork::InternalConnection::HandleReceived(Request *r) {
-    // check if subscription exists
+    // check if some Push() is subscribed
     mutex_pss.lock();
     auto it = push_subscribe.find(r->GetId());
     if (it != push_subscribe.end()) {
@@ -237,13 +237,16 @@ void DowowNetwork::InternalConnection::HandleReceived(Request *r) {
         return;
     }
 
-    // no handler, check if pull is subscribed
+    // no handler, check if Pull() is subscribed
+    mutex_pls.lock();
     if (pull_subscribe.size()) {
         auto it = pull_subscribe.begin();
         it->second = r;
         Utils::WriteEventFd(it->first, 1);
+        mutex_pls.unlock();
         return;
     }
+    mutex_pls.unlock();
 
     // no handler - add to the queue then
     mutex_rq.lock();
@@ -511,7 +514,7 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Push(
 }
 
 DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
-    // not connected, quit now
+    // not connected? quit now
     mutex_tf.lock();
     if (to_finish) {
         mutex_tf.unlock();
@@ -543,19 +546,19 @@ DowowNetwork::Request *DowowNetwork::InternalConnection::Pull(int timeout) {
     // setup the event
     int efd = eventfd(0, 0);
 
-    // TODO lock
+    mutex_pls.lock();
     pull_subscribe[efd] = 0;
-    // TODO unlock
+    mutex_pls.unlock();
     mutex_tf.unlock();
     
     // poll
     pollfd pollfds { efd, POLLIN, 0 };
     poll(&pollfds, 1, timeout * 1000);
 
-    // TODO lock
+    mutex_pls.lock();
     Request *res = pull_subscribe[efd];
     pull_subscribe.erase(efd);
-    // TODO unlock
+    mutex_pls.unlock();
     
     close(efd);
     return res;

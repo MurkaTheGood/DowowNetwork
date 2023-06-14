@@ -19,176 +19,117 @@ using namespace std;
 
 #include "Utils.hpp"
 
-void DowowNetwork::Client::TcpThreadFunc(Client *c, std::string ip, uint16_t port, int timeout) {
-    // connection in progress
-    std::lock_guard<std::mutex> __tsfdm(c->mutex_tsfd);
+void DowowNetwork::Client::ConnThreadFunc(Client *c, sockaddr addr, int timeout) {
+    // temp socket file descriptor
+    int temp_socket = socket(addr.sa_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
-    // create the address to connect to
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htobe16(port);
-    // ip
-    if (!inet_aton(ip.c_str(), &addr.sin_addr)) {
-        // invalid
-        close(c->temp_socket_fd);
-        c->temp_socket_fd = -1;
-        // notify
+    // failed to create the temp socket
+    if (temp_socket == -1) {
         Utils::WriteEventFd(c->connect_event, 1);
         return;
     }
 
     // connect
-    int connect_res = connect(
-        c->temp_socket_fd,
-        (sockaddr*)&addr,
-        sizeof(addr));
+    int connect_res = connect(temp_socket, &addr, sizeof(addr));
 
-    // in progress
+    // checking if error, and error means "in progress"
     if (connect_res == -1 && errno == EINPROGRESS) {
-        // wait for result
+        // wait for result by polling the socket for POLLOUT
         connect_res = !Utils::SelectWrite(c->temp_socket_fd, timeout);
     }
 
-    // fail
+    // three cases are possible:
+    // 1. connect_res == -1, means that a socket error occured
+    // 2. connect_res == true, means that SelectWrite returned false
+    //    indicating an error
+    // 3. connect_res == false, means that SelectWrite returned true
+    //    indicating success
+    // we're handling cases 1 and 2, 'cause both of them indicate
+    // error.
     if (connect_res) {
-        // fail
-        close(c->temp_socket_fd);
-        c->temp_socket_fd = -1;
+        // fail - close the socket
+        close(temp_socket);
         // notify
         Utils::WriteEventFd(c->connect_event, 1);
         return;
     }
 
     // connected
-    c->InitializeByFD(c->temp_socket_fd);
-    // unset temp socket fd
-    c->temp_socket_fd = -1;
+    c->conn = new Connection(temp_socket);
 
     // setup the request id part
-    c->SetEvenRequestIdsPart(true);
+    c->conn->SetEvenFriPart(true);
 
-    // notify
+    // notify about finish
     Utils::WriteEventFd(c->connect_event, 1);
 }
 
-void DowowNetwork::Client::UnixThreadFunc(Client *c, std::string socket_path, int timeout) {
-    // connection in progress
-    std::lock_guard<std::mutex> __tsfdm(c->mutex_tsfd);
-
-    // create the address to connect to
-    sockaddr_un addr;
-    addr.sun_family = AF_UNIX;
-    memcpy(addr.sun_path, socket_path.c_str(), socket_path.size() + 1);
-
-    // connect
-    int connect_res = connect(c->temp_socket_fd, (sockaddr*)&addr, sizeof(addr));
-
-    // in progress
-    if (connect_res == -1 && errno == EINPROGRESS) {
-        // wait for result
-        connect_res = !Utils::SelectRead(c->temp_socket_fd, timeout);
-    }
-
-    // fail
-    if (connect_res) {
-        // fail
-        close(c->temp_socket_fd);
-        c->temp_socket_fd = -1;
-        // notify
-        Utils::WriteEventFd(c->connect_event, 1);
-        return;
-    }
-
-    // connected
-    c->InitializeByFD(c->temp_socket_fd);
-    c->temp_socket_fd = -1;
-
-    // request part setup
-    c->SetEvenRequestIdsPart(true);
-
-    // notify
-    Utils::WriteEventFd(c->connect_event, 1);
-}
-
-DowowNetwork::Client::Client() : Connection() {
-
+DowowNetwork::Client::Client() {
+    connect_event = eventfd(0, 0);
 }
 
 
 bool DowowNetwork::Client::ConnectTcp(std::string ip, uint16_t port, int timeout) {
-    // check if connected or connecting
-    if (IsConnected() || IsConnecting())
+    // create the address to connect to
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htobe16(port);
+    // IP parsing
+    if (!inet_aton(ip.c_str(), &addr.sin_addr)) {
+        // failed to parse IP
         return false;
+    }
 
-    // temp socket fd
-    temp_socket_fd =
-        socket(AF_INET, SOCK_STREAM, 0);
+    // create a connecting thread
+    connecting_thread =
+        new std::thread(ConnThreadFunc, this, *(sockaddr*)(&addr), timeout);
 
-    // failed to create the temp socket
-    if (temp_socket_fd == -1)
-        return false;
-
-    // make socket nonblocking
-    int nb_state = 1;
-    fcntl(temp_socket_fd, F_SETFL, nb_state);
-
-    // create event
-    connect_event = eventfd(0, 0);
-
-    std::thread t(TcpThreadFunc, this, ip, port, timeout);
-    t.detach();
-
-    // read
+    // POLLIN to check if connect thread has finished
     Utils::ReadEventFd(connect_event, -1);
 
-    // close event
-    close(connect_event);
-    connect_event = -1;
-
     // return the result
-    return IsConnected();
+    return conn && conn->IsConnected();
 }
 
 bool DowowNetwork::Client::ConnectUnix(std::string socket_path, int timeout) {
-    // check if connected or connecting
-    if (IsConnected() || IsConnecting())
-        return false;
+    // sockaddr
+    sockaddr_un addr;
+    addr.sun_family = AF_UNIX;
+    memcpy(addr.sun_path, socket_path.c_str(), socket_path.size() + 1);
 
-    // temp socket fd
-    temp_socket_fd =
-        socket(AF_UNIX, SOCK_STREAM, 0);
+    // thread a connecting thread
+    connecting_thread =
+        new std::thread(ConnThreadFunc, this, *(sockaddr*)(&addr), timeout);
 
-    // failed to create the temp socket
-    if (temp_socket_fd == -1)
-        return false;
-
-    // make socket nonblocking
-    int nb_state = 1;
-    fcntl(temp_socket_fd, F_SETFL, nb_state);
-
-    // create event
-    connect_event = eventfd(0, 0);
-
-    // create a thread for connection
-    std::thread t(UnixThreadFunc, this, socket_path, timeout);
-    t.detach();
-
-    // read
+    // POLLIN
     Utils::ReadEventFd(connect_event, -1);
 
-    // close event
-    close(connect_event);
-    connect_event = -1;
-
     // return the result
-    return IsConnected();
+    return conn && conn->IsConnected();
 }
 
 bool DowowNetwork::Client::IsConnecting() {
-    return temp_socket_fd != -1;
+    return !Utils::ReadEventFd(connect_event, 0);
+}
+
+DowowNetwork::Connection *DowowNetwork::Client::GetConnection() {
+    return conn;
+}
+
+DowowNetwork::Connection *DowowNetwork::Client::operator()() {
+    return GetConnection();
 }
 
 DowowNetwork::Client::~Client() {
-    // connection in progress - wait for it to finish
-    std::lock_guard<std::mutex> __tsfdm(mutex_tsfd);
+    // join the thread
+    if (connecting_thread) {
+        connecting_thread->join();
+        delete connecting_thread;
+    }
+    // terminate the connection
+    if (conn) {
+        delete conn;
+    }
+    // close event
+    close(connect_event);
 }

@@ -10,34 +10,38 @@
 #include "Connection.hpp"
 #include "SocketType.hpp"
 
+#include <thread>
 #include <mutex>
+
+#include <sys/socket.h>
 
 namespace DowowNetwork {
     /// Client
     /*!
         The endpoint that initiates the connection.
-        This class is derived from connection as they share a lot.
+        It creates a socket, connects it to the server
+        and initializes the connection with connected
+        socket.
     */
-    class Client : public Connection {
+    class Client final {
     private:
-        // mutex for temp socket
-        std::mutex mutex_tsfd;
-
-        // file descriptor for a socket trying to connect to the server
+        // the socket that is connecting
         int temp_socket_fd = -1;
 
         // connecting thread event
         int connect_event = -1;
 
-        static void TcpThreadFunc(Client *client, std::string ip, uint16_t port, int timeout = 30);
-        static void UnixThreadFunc(Client *client, std::string unix_path, int timeout = 30);
-    protected:
+        // the Connection
+        Connection *conn = 0;
+
+        // the thread
+        std::thread *connecting_thread = 0;
+
+        static void ConnThreadFunc(Client *client, sockaddr addr, int timeout);
     public:
         /// Create a new client.
         /*!
             The created client will not be connected anywhere.
-
-            \param nonblocking must be nonblocking?
             \sa ConnectTcp(), ConnectUnix().
         */
         Client();
@@ -49,17 +53,22 @@ namespace DowowNetwork {
 
         /// Check if connecting right now.
         /*!
-            \return
-                true if trying to connect to the server.
-
+            \return true if trying to connect to the server.
             \sa IsConnected().
         */
         bool IsConnecting();
 
-        /// Client destructor.
+        /// Get the Connection.
         /*!
-            Disconnects if needed.
+            \return Connection pointer if connected,
+                    null-pointer on failure.
         */
+        Connection *GetConnection();
+        /// Get the Connection.
+        /// \sa GetConnection()
+        Connection *operator()();
+
+        /// Client destructor.
         ~Client();
     };
 }

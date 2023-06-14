@@ -23,7 +23,6 @@ set(VALUES_SOURCES
 # sources of the main library
 set(SOURCES
     Connection.cpp
-    InternalConnection.cpp
     Client.cpp
     Datum.cpp
     Request.cpp

@@ -1,308 +1,138 @@
-/*!
-    \file
-
-    This file defines the Connection class and related typedefs.
-*/
-
 #ifndef __DOWOW_NETWORK__CONNECTION_H_
 #define __DOWOW_NETWORK__CONNECTION_H_
 
-#include <queue>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <map>
-
-#ifdef DUMP_CONNECTIONS
-#include <fstream>
-#include <iostream>
-#include <ctime>
-#endif
-
-#include <mutex>
-#include <thread>
-
-#include "Utils.hpp"
-#include "SocketType.hpp"
 #include "Request.hpp"
 
+#include <cstdint>
+
+#include <list>
+#include <map>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <utility>
+
+#define CONN_OT_INTERVAL 10
+#define CONN_TT_INTERVAL 60
+
 namespace DowowNetwork {
-    // Predeclare the connection for typedef
     class Connection;
 
-    //! Request-related handler prototype.
-    /*!
-        \param c Connection that calls the handler
-        \param r Request that something occurs with
-    */
-    typedef void (*RequestHandler)(Connection* c, Request* r);
+    typedef void (*RequestHandler)(Connection *c, Request* r);
 
-    //! A connection between two endpoints.
-    class Connection {
+    class Connection final {
     private:
-        //! mutex for free request id
-        std::recursive_mutex mutex_fri;
-        //! mutex for 'is even request parts'
-        std::recursive_mutex mutex_ivrp;
-        //! mutex for 'is_disconnecting'
-        std::recursive_mutex mutex_id;
-        //! mutex for 'send_block_size'
-        std::recursive_mutex mutex_sbs;
-        //! mutex for 'recv_buffer_max_length'
-        std::recursive_mutex mutex_rbml;
-        //! mutex for 'recv_block_size'
-        std::recursive_mutex mutex_rbs;
-        //! mutex for send queue
-        std::recursive_mutex mutex_sq;
-        //! mutex for recv queue
-        std::recursive_mutex mutex_rq;
-        //! mutex for handler_default
-        std::recursive_mutex mutex_hd;
-        //! mutex for handlers_named
-        std::recursive_mutex mutex_hn;
-        //! mutex for our_sa_interval
-        std::recursive_mutex mutex_osai;
-        //! mutex for their_na_interval
-        std::recursive_mutex mutex_tnai;
-        //! mutex for refs_amount
-        std::recursive_mutex mutex_ra;
-        //! mutex for background_thread
-        std::recursive_mutex mutex_bt;
-        //! mutex for receive events
-        std::recursive_mutex mutex_re;
-
-        //! Whether the handlers are multithreaded.
-        bool mt_handlers = true;
-
-        //! The ID of the free request.
-        uint32_t free_request_id = 1;
-        //! Use even or odd request ids?
-        bool is_even_request_parts = false;
-        //! Is disconnection in progress?
-        bool is_disconnecting = false;
-
-        //! The socket file descriptor.
+        // fds
         int socket_fd = -1;
-
-        //! The socket type.
-        uint8_t socket_type = SocketTypeUndefined;
-
-        //! The maximum amount of bytes we will attempt to send
-        //! at a time.
-        uint32_t send_block_size = 1024;
-        //! The send buffer.
-        const char* send_buffer = 0;
-        //! The length of the send buffer.
-        uint32_t send_buffer_length = 0;
-        //! The offset of the send buffer.
-        uint32_t send_buffer_offset = 0;
-        //! The queue of requests to send.
-        std::queue<Request*> send_queue;
-
-        //! The maximum amount of bytes we will attempt to receive
-        //! at a time.
-        uint32_t recv_block_size = 1024;
-        //! The maxiumum allowed size of the receive buffer.
-        //! The connection will be closed if they'll try to violate
-        //! this limit.
-        uint32_t recv_buffer_max_length = 16 * 1024;
-        //! The receive buffer.
-        char* recv_buffer = 0;
-        //! The receive buffer length.
-        uint32_t recv_buffer_length = 0;
-        //! The receive buffer offset.
-        uint32_t recv_buffer_offset = 0;
-        //! Is receiving the request length right now?
-        bool is_recv_length = true;
-        //! The queue of the received requests.
-        std::queue<Request*> recv_queue;
-
-        //! The pointer to the default request handler.
-        RequestHandler handler_default = 0;
-        //! The map of the pointers to the named request handlers.
-        std::map<std::string, RequestHandler> handlers_named;
-
-        //! Push() event
-        int push_event = -1;
-        //! 'to_stop' event
-        int to_stop_event = -1;
-        //! 'stopped' event
         int stopped_event = -1;
-        //! receive events
-        std::list<int> receive_events;
-        //! 'not_needed' event
-        int not_needed_event = -1;
-        //! our still-alive timer
-        int our_sa_timer = -1;
-        //! their not-alive timer
-        int their_na_timer = -1;
+        int to_stop_event = -1;
+        int push_event = -1;
 
-        //! Our keep_alive interval
-        time_t our_sa_interval = 10;
-        //! The amount of time they are considered disconnected after.
-        time_t their_na_interval = 60;
+        // free request id
+        uint32_t free_rid = 1;
+        bool even_rids = false;
 
-        //! Amount of links to this connection outside the library.
-        uint32_t refs_amount = 0;
+        // is disconnection in progress?
+        bool to_finish = false;
 
-        //! Background thread.
-        std::thread *background_thread = 0;
+        // queues
+        std::list<Request*> send_queue;
+        std::list<Request*> recv_queue;
 
-        //! Polling thread function.
-        /*!
-         * This function is running in background and
-         * handling I/O and events.
-         */
-        static void ConnThreadFunc(Connection* conn);
+        // send buffer
+        const char *send_buffer = 0;
+        uint32_t send_buffer_size = 0;
+        uint32_t send_buffer_offset = 0;
 
-        //! Check if has something to send.
-        //! /return send_buffer || send_queue.size()
+        // receive buffer
+        char *recv_buffer = 0;
+        uint32_t recv_buffer_size = 0;
+        uint32_t recv_buffer_offset = 0;
+        std::map<uint32_t, std::pair<int, Request*>> push_subscribe;
+        std::map<int, Request*> pull_subscribe;
+
+        // handlers
+        std::map<std::string, RequestHandler> handlers_named;
+        RequestHandler handler_default = 0;
+        // handlers stopped events
+        std::map<int, std::thread*> handler_stop_events;
+
+        // the background thread
+        std::thread *bg_thread = 0;
+
+        // last errno
+        int last_errno = 0;
+
+        // *******
+        // MUTEXES
+        // *******
+        std::recursive_mutex mutex_sq;      // send queue
+        std::recursive_mutex mutex_rq;      // recv queue
+        std::recursive_mutex mutex_tf;      // to finish
+        std::recursive_mutex mutex_pss;     // push subcribe
+        std::recursive_mutex mutex_pls;     // pull subcribe
+        std::recursive_mutex mutex_fri;     // fri
+        std::recursive_mutex mutex_h;       // handlers
+
+        // *********
+        // FUNCTIONS
+        // *********
+
+        // the handler thread logic
+        static void HandlerBootstapper(
+                Connection *c,
+                RequestHandler h,
+                Request *r,
+                int stopped_event);
+        // the logic of the background thread
+        static void BackgroundFunction(Connection *c);
+
+        // handle the received request
+        void HandleReceived(Request *r);
+
+        // returns true if send queue or buffer is not empty
         bool HasSomethingToSend();
 
-        //! Pass the Requests through assigned handlers.
-        /*!
-            \return
-                Was the Request processed by some handler?
-        */
-        bool PassThroughHandlers(Request* req);
-
-        //! Bootstrapper function for MT handler mode.
-        static void HandlerBootstrapper(Connection *c, RequestHandler h, Request *r);
-    protected:
-        /// This constructor does nothing.
-        /*!
-            It is declared protected so that the derived classes could
-            define their own initialization process.
-        */
-        Connection();
-
-        //! Delete the send buffer.
-        void DeleteSendBuffer();
-        //! Delete the receive buffer.
-        //! Also resets is_recv_length.
-        void DeleteRecvBuffer();
-
-        //! Perform receive I/O.
-        /*! \return     true if no errors occured, false if the connection
-         *              is broken.
-         *  \warning    This function isn't MT-Safe and must only
-         *              be called from within ConnThreadFunc()!
-         */
-        bool Receive();
-        //! Perform send I/O.
-        /*! Automatically calls PopSendQueue if needed.
-         *  \return     true if no errors occured, false if the connection
-         *              is broken.
-         *  \warning    This function isn't MT-Safe and must only
-         *              be called from within ConnThreadFunc()!
-         */
-        bool Send();
-
-        //! send_queue -> send_buffer.
-        /*! Pops the first request in send_queue and
-            puts it to the send buffer.
-            \return true if the queue wasn't empty.
-            \warning The old buffer is not deleted!
-        */
+        // pop the send queue and put the result in send buffer
+        // returns false if the queue is empty
         bool PopSendQueue();
 
-        //! Initialize the connection with connected socket.
-        /*! - Automatically guesses the domain.
-         *  - Creates the 'push', 'to stop' events.
-         *  - Creates 'our still alive', 'their not alive' timers.
-         *  - Resets the 'stopped' event.
-         *  - Resets the free request id (even/odd is not touched).
-         *  - Clears the receive queue.
-         *  - Starts the background thread.
-         *  \warning Not MT-Safe!
-         */
-        void InitializeByFD(int socket_fd);
+        // send logic (called in BackgroundFunction only).
+        // returns true on success.
+        bool Send();
 
-        //! Set the even or odd request ids part.
-        void SetEvenRequestIdsPart(bool state);
+        // receive logic (called in BackgroundFunction only).
+        // returns true on success.
+        bool Recv();
     public:
-        //! Connection ID.
+        //! Not used inside the class itself.
         uint32_t id = 0;
-        //! The connection tag.
-        std::string tag;
 
-        //! Default constructor.
-        //! Effectively just calls InitializeByFD().
-        Connection(int socket_fd);
+        Connection() = delete;
+        Connection(int fd);
 
-        //! Set 'our still alive' timer interval.
-        void SetOurSaInterval(time_t interval);
-        //! Get 'our still alive' timer interval.
-        time_t GetOurSaInterval();
+        Request *Push(Request *r, bool change_id = true, bool copy = false, int timeout = 0);
+        Request *Push(const Request &r, bool change_id = true, int timeout = 0);
 
-        //! Set 'their not alive' timer interval limit.
-        void SetTheirNaIntervalLimit(time_t interval);
-        //! Get 'their not alive' timer interval limit.
-        time_t GetTheirNaIntervalLimit();
+        Request *Pull(int timeout = -1);
 
-        //! Push the Request to the send queue.
-        /*! MT-Safe. The request will get sent in the background thread.
-         *  - timeout > 0: seconds to wait for the response
-         *  - timeout == 0: do not wait for the response
-         *  - timeout < 0: wait for the response infinitely long
-         *  \param r the Request to send
-         *  \param to_copy to copy the Request?
-         *  \param timeout how long to wait for response?
-         *  \param change_id to change the request ID to a free one?
-         *  \return
-         *      -   If timeout is non-zero then a pointer to the response [YOURS]
-         *          or null-pointer (on disconnection or timed out)
-         *      -   If timeout is zero then null-pointer.
-         *  \warning
-         *      [YOURS] Please make sure you delete the returned Request
-         *      when it's not needed anymore.
-         */
-        Request* Push(Request* r, bool to_copy = true, int timeout = 0, bool change_id = true);
-        //! \sa Push(Request*, bool, int, bool) 
-        Request* Push(const Request& r, int timeout = 0, bool change_id = true);
-
-        //! Pull the request from the receive queue.
-        /*! MT-Safe.
-         *  \param timeout how long to wait for request?
-         *  \return The pulled request on success, null-pointer if
-         *          the queue is empty.
-         */
-        Request* Pull(int timeout = 0);
-
-        /// MT-Safe
-        uint32_t GetRefs();
-        /// MT-Safe
-        void IncreaseRefs();
-        /// MT-Safe
-        void DecreaseRefs();
-
-        /// \warning    Do not call this function in non-multithreaded handler
-        //              if you are also waiting for join. Deadlock will happen.
-        void Disconnect(bool forced = false, bool wait_for_join = false);
-        bool IsConnected();
-        bool IsDisconnecting();
-
-        uint8_t GetType();
+        bool WaitForStop(int timeout = -1);
+        void Disconnect(bool forced = true);
 
         int GetStoppedEvent();
-        bool WaitForStop(int timeout = -1);
-
-        void SetHandlerDefault(RequestHandler h);
-        RequestHandler GetHandlerDefault();
+        bool IsConnected();
 
         void SetHandlerNamed(std::string name, RequestHandler h);
         RequestHandler GetHandlerNamed(std::string name);
 
-        void SetSendBlockSize(uint32_t bs);
-        uint32_t GetSendBlockSize();
+        void SetHandlerDefault(RequestHandler h);
+        RequestHandler GetHandlerDefault();
 
-        void SetRecvBlockSize(uint32_t bs);
-        uint32_t GetRecvBlockSize();
+        void SetEvenFriPart(bool is_even);
 
-        void SetMaxRequestSize(uint32_t size);
-        uint32_t GetMaxRequestSize();
+        int GetErrno();
 
-        virtual ~Connection();
+        ~Connection();
     };
 }
 

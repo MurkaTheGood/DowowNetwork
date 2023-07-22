@@ -60,8 +60,7 @@ void DowowNetwork::Connection::BackgroundFunction(Connection *c) {
         fds[1].fd = c->socket_fd;
         fds[1].events =
             (!c->to_finish ? POLLIN : 0) |
-            (c->HasSomethingToSend() | c->to_finish ? POLLOUT : 0) |
-            POLLHUP;
+            (c->HasSomethingToSend() | c->to_finish ? POLLOUT : 0);
         c->mutex_tf.unlock();
         // push
         fds[2].fd = c->push_event;
@@ -89,6 +88,10 @@ void DowowNetwork::Connection::BackgroundFunction(Connection *c) {
             break;
         }
         // socket
+        if (Utils::IsPollError(fds[1].revents)) {
+            // network error
+            break;
+        }
         if (fds[1].revents & POLLIN) {
             if (!c->Recv())
                 // recv failed, disconnect
@@ -98,10 +101,6 @@ void DowowNetwork::Connection::BackgroundFunction(Connection *c) {
             if (!c->Send())
                 // send failed, disconnect
                 break;
-        }
-        if (fds[1].revents & POLLHUP) {
-            // hang up
-            break;
         }
         // push
         if (fds[2].revents & POLLIN) {

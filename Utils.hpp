@@ -38,6 +38,9 @@ namespace DowowNetwork {
         */
         bool SelectRead(int fd, int seconds = 0);
 
+        //! Check if poll() revents contains some sort of error.
+        bool IsPollError(int revents);
+
         /// Write uint64_t to event file descriptor.
         /*!
             \param fd the file descriptor to write to

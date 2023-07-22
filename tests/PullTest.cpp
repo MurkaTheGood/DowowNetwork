@@ -17,14 +17,14 @@
 #include <sys/poll.h>
 #include <netinet/in.h>
 
-#include "../../values/All.hpp"
-#include "../../InternalConnection.hpp"
+#include "../values/All.hpp"
+#include "../Connection.hpp"
 
 using namespace std;
 using namespace DowowNetwork;
 
 // Connect to the server on localhost.
-InternalConnection *Connect(uint16_t port) {
+Connection *Connect(uint16_t port) {
     // temp variable
     int temp = 0;
 
@@ -44,7 +44,7 @@ InternalConnection *Connect(uint16_t port) {
 
     cout << "[LOG] Connected to 127.0.0.1:" << port << endl;
 
-    return new InternalConnection(socket_fd);
+    return new Connection(socket_fd);
 }
 
 

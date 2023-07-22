@@ -1,217 +1,121 @@
-#include "../Datum.hpp"
-#include "../Request.hpp"
-#include "../Client.hpp"
-#include "../values/All.hpp"
+/*!
+ *  \file
+ *
+ * This file implements the Client class test.
+ */
 
 #include <algorithm>
-#include <string>
 #include <iostream>
-#include <fstream>
-#include <cassert>
-#include <random>
-#include <ctime>
+#include <list>
 
-#include <errno.h>
+#include <cassert>
+
 #include <unistd.h>
-#include <sys/stat.h>
+#include <errno.h>
+#include <endian.h>
+#include <sys/socket.h>
 #include <sys/poll.h>
-#include <time.h>
+#include <netinet/in.h>
+
+#include "../values/All.hpp"
+#include "../Connector.hpp"
 
 using namespace std;
 using namespace DowowNetwork;
 
-void HandlerPong(Connection *c, Request *r) {
-    // Getting the Value object.
-    auto number_v = r->Get<Value32S>("number");
-    // Checking if not present.
-    if (!number_v) {
+int main() {
+    // The connector
+    Connector *cl = new Connector();
+    bool c_res = cl->ConnectTcp("127.0.0.1", 23060, 30);
+    assert(c_res && "connection must succeed");
+
+    // Get the connection object
+    Connection* c = cl->GetConnection();
+    // Deleted the connector
+    delete cl;
+
+    cout << "[LOG] Connected" << endl;
+
+    // wait a bit
+    cout << "[LOG] Waiting for a second" << endl;
+    sleep(1);
+
+    // check if the queue is empty (as it should be)
+    cout << "[LOG] Checking if the receive queue is not empty" << endl;
+    assert(!c->Pull(0) && "must return 0");
+
+    // response
+    Request *r = 0;
+    // make five instant pings
+    for (int i = 0; i < 5; i++) {
+        cout << "[LOG] Pushing 'ping' request" << endl;
+
+        // Create and send the ping request
+        Request *ping = new Request("ping");
+        c->Push(ping);
+
+        // Wait for response for 3 seconds
+        cout << "[LOG] Waiting for a response (not functional)..." << endl;
+        r = c->Pull(3);
+
+        // Check for errors
+        assert(r && "must not be 0");
+        assert(r->GetName() == "pong" && "name must be 'pong'");
+        cout << "[OK ] Received response of size " << r->GetSize() << " and ID " << r->GetId() << endl;
         delete r;
-        return;
-    }
-    // Getting the value itself.
-    int32_t number = number_v->Get();
-
-    // Log.
-    cout << "Received 'pong': " << number << ", waiting for a second" << endl;
-   
-    // YOU MAY NEVER SLEEP WHEN NOT USING MULTITHREADED HANDLERS!
-    // Sleeping so we can check WaitForStop().
-    sleep(1);
-
-    // Create a response.
-    Request ping("ping");
-    ping.Emplace<Value32S>("number", number);
-
-    // Send the response.
-    c->Push(ping);
-}
-
-void HandlerBye(Connection *c, Request *r) {
-    // Log.
-    cout << "'bye' handler invoked" << endl;
-
-    // Create the stop request (if the second test is invoked).
-    if (c->tag == "second") {
-        Request stop("stop");
-        c->Push(stop);
-        c->Disconnect(false, false);
-    }
-}
-
-void HandlerDefault(Connection *c, Request *r) {
-    // Log.
-    cout << "Default handler invoked, received request:" << endl;
-    cout << r->ToString() << endl;
-}
-
-// Create a client and setup it
-Client *CreateClient() {
-    // Create the client.
-    Client *client = new Client();
-
-    // Setup the named handlers.
-    client->SetHandlerNamed("pong", HandlerPong);
-    client->SetHandlerNamed("bye", HandlerBye);
-
-    // Setup the default handler.
-    // * It's executed when no appropriate named handler
-    // * is found.
-    client->SetHandlerDefault(HandlerDefault);
-
-    // Return the client.
-    return client;
-}
-
-int main(int argc, char** argv) {
-    // Arguments.
-    bool stress_test = false;
-    bool valgrind = false;
-    if (argc > 1) {
-        for (int i = 1; i < argc; ++i) {
-            if (string(argv[i]) == "--help" ||
-                string(argv[i]) == "-h" ||
-                string(argv[i]) == "?")
-            {
-                cout << "Use this test to perform basic test of TCP and UNIX connectivity" << endl;
-                cout << "For stress test:" << endl;
-                cout << "    " << argv[0] << " -s" << endl;
-                cout << "For memory analysis of client:" << endl;
-                cout << "    valgrind " << argv[0] << " -v" << endl;
-                return 0;
-            } else if (string(argv[i]) == "-s") {
-                cout << "STRESS TEST" << endl;
-                stress_test = true;
-            } else if (string(argv[i]) == "-v") {
-                cout << "CLIENT MEMORY ANALYSIS (valgrind)" << endl;
-                valgrind = true;
-            }
-        }
-    }
-    // Client pointer.
-    Client *client = 0;
-
-    // Create an initial request.
-    Request ping("ping");
-    ping.Emplace<Value32S>("number", 0);
-
-    // ****************************************
-    // Testing the forced disconnection feature
-    // ****************************************
-    for (int i = 0; i < (stress_test | valgrind ? 10 : 1); i++) {
-        cout << "[TRANSMISSION-FORCED TEST #" << i << "]" << endl;
-        // create the client
-        client = CreateClient();
-
-        cout << "Connecting..." << endl;
-        // Connect to the server.
-        if (!client->ConnectTcp("127.0.0.1", 23050, -1)) {
-            cout << "Failed to connect to 127.0.0.1:23050!" << endl;
-            return 1;
-        }
-
-        // Log.
-        cout << "Connected to 127.0.0.1:23050" << endl;
-
-        // Push the initial request to the send queue.
-        // * The request becomes scheduled to be sent
-        // * and will eventually get sent by background
-        // * thread.
-        client->Push(ping);
-
-        cout << "AAAAA" << endl;
-        // Wait for disconnection.
-        client->WaitForStop(stress_test ? 0 : 1);
-        cout << "BBBBB" << endl;
-
-        // Check error.
-        if (!client->IsConnected()) {
-            cout << "Connection's lost before it was intended to be so" << endl;
-            return 1;
-        }
-
-        cerr << "Still connected" << endl;
-
-        // Forced disconnection.
-        client->Disconnect(true, true);
-
-        cerr << "DISCONNECTED!" << endl;
-
-        // Check error.
-        if (client->IsConnected()) {
-            cout << "Connection isn't lost but it ought to be" << endl;
-            return 1;
-        }
-
-        // Log.
-        cout << "Disconnected" << endl;
-
-        delete client;
-
-        cout << "[TRANSMISSION-FORCED TEST #" << i << " PASSED]" << endl;
     }
 
-    // ******************************************
-    // Testing the graceful disconnection feature
-    // ******************************************
-    cout << "[TRANSMISSION-GRACEFUL TEST]" << endl;
+    // make get request with 5 seconds timeout
+    Request *get = new Request("get");
+    cout << "[LOG] Pushing 'get' request (functional)" << endl;
+    r = c->Push(get, true, false, 5);
 
-    // Create the client
-    client = CreateClient();
+    // check for errors
+    assert(r && "Response to 'get' must not be 0");
+    assert(r->GetName() == "response" && "Response to 'get' must have name 'response'");
+    cout << "[OK ] Received functional response of size " << r->GetSize() << endl;
+    delete r;
 
-    // Log.
-    cout << "Reconnecting..." << endl;
+    // hang request with 10 seconds timeout (it hangs for 5 seconds)
+    Request *hang = new Request("hang");
+    hang->Emplace<Value32U>("s", 5);
+    cout << "[LOG] Pushing 'hang(5)' request (functional)" << endl;
+    r = c->Push(hang, true, false, 10);
+    assert(r && "a request must be received");
+    cout << "[OK ] Received a response for 'hang(5)'" << endl;
+    delete r;
 
-    // Mark the connection with a tag.
-    client->tag = "second";
-    // Connect to the server.
-    if (!client->ConnectTcp("127.0.0.1", 23050, -1)) {
-        cout << "Failed to reconnect to 127.0.0.1:23050!" << endl;
-        return 1;
-    }
+    // hang request with 1 second timeout (it hangs for 5 seconds)
+    hang = new Request("hang");
+    hang->Emplace<Value32U>("s", 5);
+    cout << "[LOG] Pushing 'hang(5)' request (functional), waiting for 1s" << endl;
+    r = c->Push(hang, true, false, 1);
+    assert(!r && "a request must not be received");
+    cout << "[OK ] Not received a response for 'hang(5)' (that means good)" << endl;
 
-    // Log.
-    cout << "Connected to 127.0.0.1:23050" << endl;
+    // Disconnecting
+    delete c;
 
-    // Reuse the initial request.
-    client->Push(ping);
+    cout << "[LOG] Disconnected" << endl;
+    cl = new Connector();
+    cl->ConnectTcp("127.0.0.1", 23060);
+    c = cl->GetConnection();
+    delete cl;
+    // hang request with 1 second timeout again
+    hang = new Request("hang");
+    hang->Emplace<Value32U>("s", 5);
+    cout << "[LOG] Pushing 'hang(5)' request (functional), waiting for 1s, and stopping the server" << endl;
+    r = c->Push(hang, true, false, 1);
+    assert(!r && "a request must not be received");
+    cout << "[OK ] Not received a response for 'hang(5)' (that means good)" << endl;
+    cout << "[LOG] Requesting server stop" << endl;
+    Request *stop = new Request("stop");
+    c->Push(stop);
+    c->Disconnect(false);
+    c->WaitForStop();
+    delete c;
 
-    // Wait for disconnection (indefinitely long this time).
-    client->WaitForStop();
-
-    if (client->IsConnected()) {
-        cout << "Connection isn't lost but it ought to be" << endl;
-        return 1;
-    }
-
-    // Log.
-    cout << "Disconnected" << endl;
-
-    // delete the client
-    delete client;
-
-    cout << "[TRANSMISSION-GRACEFUL TEST FINISHED]" << endl;
-
-    sleep(1);
+    cout << "[PASSED]" << endl;
 
     return 0;
 }

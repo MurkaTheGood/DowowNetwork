@@ -93,7 +93,8 @@ void DowowNetwork::Server::ServerThreadFunc(Server *s) {
         std::list<Connection*> deleted_conns;
         i = 0;
         for (auto c : s->connections) {
-            if (pollfds[2 + i++].revents & POLLIN) {
+            int revents = pollfds[2 + i++].revents;
+            if (Utils::IsPollError(revents) || revents & POLLIN) {
                 // call 'disconnected' handler
                 (*s->GetDisconnectedHandler())(s, c);
                 // delete the connection
@@ -108,7 +109,7 @@ void DowowNetwork::Server::ServerThreadFunc(Server *s) {
         // ***********************
         // check if new connection
         // ***********************
-        if (pollfds[0].revents & POLLIN) {
+        if (Utils::IsPollError(pollfds[0].revents) || pollfds[0].revents & POLLIN) {
             // accept
             Connection *new_conn = s->AcceptOne();
             // not an error
@@ -329,20 +330,7 @@ int32_t DowowNetwork::Server::GetMaxConnections() {
     return max_connections;
 }
 
-DowowNetwork::SafeConnection *DowowNetwork::Server::GetConnection(std::string tag) {
-    auto it = std::find_if(
-        connections.begin(),
-        connections.end(),
-        [&](Connection *c) {
-            return c->tag == tag;
-        });
-
-    if (it == connections.end()) return 0;
-
-    return new SafeConnection(*it);
-}
-
-DowowNetwork::SafeConnection *DowowNetwork::Server::GetConnection(uint32_t id) {
+DowowNetwork::Connection *DowowNetwork::Server::GetConnection(uint32_t id) {
     auto it = std::find_if(
         connections.begin(),
         connections.end(),
@@ -352,7 +340,10 @@ DowowNetwork::SafeConnection *DowowNetwork::Server::GetConnection(uint32_t id) {
 
     if (it == connections.end()) return 0;
 
-    return new SafeConnection(*it);
+    // TODO: increase the reference count
+    // (*it)->Reference();
+
+    return *it;
 }
 
 void DowowNetwork::Server::Stop(int timeout) {

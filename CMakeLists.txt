@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(DowowNetwork)
 
 # add some options for build configurations
-option(BUILD_EXAMPLES "Build examples?")
+option(BUILD_EXAMPLES "Build examples?" ON)
 option(BUILD_TESTS "Build tests?" OFF)
 option(DEBUG "Include debug symbols?" OFF)
 
@@ -23,7 +23,7 @@ set(VALUES_SOURCES
 # sources of the main library
 set(SOURCES
     Connection.cpp
-    Client.cpp
+    Connector.cpp
     Datum.cpp
     Request.cpp
     Server.cpp

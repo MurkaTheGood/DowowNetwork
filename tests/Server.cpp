@@ -1,7 +1,7 @@
 /*!
  *  \file
  *
- *  The server program for all the InternalConnection tests.
+ *  The server program for all the Connection tests.
  *  It does not use any library facilities to accept connection
  *  beacuse they're not done by the moment of coding :-)
  */
@@ -19,8 +19,8 @@
 #include <sys/poll.h>
 #include <netinet/in.h>
 
-#include "../../InternalConnection.hpp"
-#include "../../values/All.hpp"
+#include "../Connection.hpp"
+#include "../values/All.hpp"
 
 using namespace std;
 using namespace DowowNetwork;
@@ -59,14 +59,14 @@ void Setup() {
 }
 
 // The handler for ping request.
-void HandlerPing(InternalConnection *c, Request *r) {
+void HandlerPing(Connection *c, Request *r) {
     cout << "[REQ] " << c->id << ": " << r->GetName() << " (" << r->GetSize() << " bytes)" << endl;
     Request res("pong");
     c->Push(res);
 }
 
 // The handler for 'get'
-void HandlerGet(InternalConnection *c, Request *r) {
+void HandlerGet(Connection *c, Request *r) {
     cout << "[REQ] " << c->id << ": " << r->GetName() << endl;
     
     Request *res = new Request("response");
@@ -75,7 +75,7 @@ void HandlerGet(InternalConnection *c, Request *r) {
 }
 
 // The handler for 'hang'
-void HandlerHang(InternalConnection *c, Request *r) {
+void HandlerHang(Connection *c, Request *r) {
     cout << "[REQ] " << c->id << ": " << r->GetName() << endl;
     uint32_t s = 5;
     if (r->Get<Value32U>("s"))
@@ -94,7 +94,7 @@ void HandlerHang(InternalConnection *c, Request *r) {
 };
 
 // The handler for 'stop'
-void HandlerStop(InternalConnection *c, Request *r) {
+void HandlerStop(Connection *c, Request *r) {
     cout << "[REQ] " << c->id << ": " << r->GetName() << endl;
 
     to_work = false;
@@ -105,7 +105,7 @@ int main() {
     Setup();
 
     // the list of all connected clients
-    std::list<InternalConnection*> conns;
+    std::list<Connection*> conns;
     // free id for connection
     uint32_t cid = 0;
 
@@ -136,7 +136,7 @@ int main() {
             if (fds[i].revents & POLLIN) {
                 // find the connection
                 auto it = std::find_if(conns.begin(), conns.end(),
-                        [&](InternalConnection *c) {
+                        [&](Connection *c) {
                             return c->GetStoppedEvent() == fds[i].fd;
                         });
 
@@ -155,7 +155,7 @@ int main() {
             int fd = accept(socket_fd, 0, 0);
             assert(fd != -1 && "accept");
 
-            InternalConnection *n = new InternalConnection(fd);
+            Connection *n = new Connection(fd);
             n->id = cid++;
             n->SetHandlerNamed("ping", HandlerPing);
             n->SetHandlerNamed("get", HandlerGet);

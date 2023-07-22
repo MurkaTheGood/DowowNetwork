@@ -12,14 +12,26 @@ bool DowowNetwork::Utils::SelectWrite(int fd, int seconds) {
     pollfd pollfds { fd, POLLOUT, 0 };
     poll(&pollfds, 1, seconds * 1000);
 
-    return pollfds.revents & POLLOUT;
+    // Check if error
+    if (IsPollError(pollfds.revents))
+        return false;
+
+    return pollfds.revents & POLLIN;
 }
 
 bool DowowNetwork::Utils::SelectRead(int fd, int seconds) {
     pollfd pollfds { fd, POLLIN, 0 };
     poll(&pollfds, 1, seconds * 1000);
 
+    // Check if error
+    if (IsPollError(pollfds.revents))
+        return false;
+
     return pollfds.revents & POLLIN;
+}
+
+bool DowowNetwork::Utils::IsPollError(int revents) {
+    return (revents & POLLHUP) | (revents & POLLERR) | (revents & POLLNVAL);
 }
 
 void DowowNetwork::Utils::WriteEventFd(int fd, uint64_t num) {
@@ -42,4 +54,3 @@ void DowowNetwork::Utils::SetTimerFdTimeout(int fd, time_t seconds) {
     };
     timerfd_settime(fd, 0, &new_timer, 0);
 }
-
